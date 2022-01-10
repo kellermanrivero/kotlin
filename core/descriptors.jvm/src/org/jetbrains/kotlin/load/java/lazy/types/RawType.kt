@@ -54,8 +54,9 @@ class RawTypeImpl private constructor(lowerBound: SimpleType, upperBound: Simple
             return classDescriptor.getMemberScope(RawSubstitution())
         }
 
-    override fun replaceAnnotations(newAnnotations: Annotations) =
-        RawTypeImpl(lowerBound.replaceAnnotations(newAnnotations), upperBound.replaceAnnotations(newAnnotations))
+    override fun replaceAttributes(newAttributes: TypeAttributes) =
+        RawTypeImpl(lowerBound.replaceAttributes(newAttributes), upperBound.replaceAttributes(newAttributes))
+
 
     override fun makeNullableAsSpecified(newNullability: Boolean) =
         RawTypeImpl(lowerBound.makeNullableAsSpecified(newNullability), upperBound.makeNullableAsSpecified(newNullability))
@@ -144,7 +145,7 @@ internal class RawSubstitution(typeParameterUpperBoundEraser: TypeParameterUpper
                 TypeProjectionImpl(componentTypeProjection.projectionKind, eraseType(componentTypeProjection.type, attr))
             )
             return KotlinTypeFactory.simpleType(
-                type.annotations, type.constructor, arguments, type.isMarkedNullable
+                type.attributes, type.constructor, arguments, type.isMarkedNullable
             ) to false
         }
 
@@ -152,7 +153,7 @@ internal class RawSubstitution(typeParameterUpperBoundEraser: TypeParameterUpper
 
         val memberScope = declaration.getMemberScope(this)
         return KotlinTypeFactory.simpleTypeWithNonTrivialMemberScope(
-            type.annotations, declaration.typeConstructor,
+            type.attributes, declaration.typeConstructor,
             declaration.typeConstructor.parameters.map { parameter ->
                 computeProjection(parameter, attr)
             },

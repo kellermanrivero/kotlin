@@ -104,7 +104,13 @@ internal class TestCompilerArgs(val compilerArgs: List<String>) {
     companion object {
         val EMPTY = TestCompilerArgs(emptyList())
 
-        fun findForbiddenArgs(compilerArgs: Iterable<String>): Set<String> = compilerArgs intersect EXPLICITLY_FORBIDDEN_COMPILER_ARGS
+        fun findForbiddenArgs(compilerArgs: Iterable<String>): Set<String> = buildSet {
+            addAll(compilerArgs)
+            retainAll(EXPLICITLY_FORBIDDEN_COMPILER_ARGS)
+            compilerArgs.mapNotNullTo(this) { arg ->
+                if (EXPLICITLY_FORBIDDEN_COMPILER_ARG_PREFIXES.any { prefix -> arg.startsWith(prefix) }) arg else null
+            }
+        }
 
         /** The set of compiler args that are not permitted to be explicitly specified using [FREE_COMPILER_ARGS]. */
         private val EXPLICITLY_FORBIDDEN_COMPILER_ARGS = setOf(
@@ -113,11 +119,19 @@ internal class TestCompilerArgs(val compilerArgs: List<String>) {
             "-trw", "-generate-worker-test-runner",
             "-nomain",
             "-output",
-            "-entry",
+            "-entry", "-e",
             "-produce",
             "-repo",
             "-target",
-            "-Xinclude"
+            "-Xinclude",
+            "-g", "-opt",
+            "-memory-model",
+            "-Xcheck-state-at-external-calls"
+        )
+
+        /** The set of compiler arg prefixes that are not permitted to be explicitly specified using [FREE_COMPILER_ARGS]. */
+        private val EXPLICITLY_FORBIDDEN_COMPILER_ARG_PREFIXES = setOf(
+            "-Xgc="
         )
     }
 }

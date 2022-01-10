@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.container.useInstance
 import org.jetbrains.kotlin.context.ModuleContext
 import org.jetbrains.kotlin.contracts.ContractDeserializerImpl
 import org.jetbrains.kotlin.extensions.StorageComponentContainerContributor
+import org.jetbrains.kotlin.extensions.TypeAttributeTranslatorExtension
 import org.jetbrains.kotlin.idea.MainFunctionDetector
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
@@ -78,6 +79,8 @@ fun StorageComponentContainer.configureModule(
 
     analyzerServices.platformConfigurator.configureModuleComponents(this)
     analyzerServices.platformConfigurator.configureModuleDependentCheckers(this)
+
+    useInstance(TypeAttributeTranslatorExtension.createTranslators(moduleContext.project))
 
     for (extension in StorageComponentContainerContributor.getInstances(moduleContext.project)) {
         extension.registerModuleComponents(this, platform, moduleContext.module)

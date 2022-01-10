@@ -144,7 +144,7 @@ private fun captureFromArguments(type: UnwrappedType, status: CaptureStatus): Un
 }
 
 private fun UnwrappedType.replaceArguments(arguments: List<TypeProjection>) =
-    KotlinTypeFactory.simpleType(annotations, constructor, arguments, isMarkedNullable)
+    KotlinTypeFactory.simpleType(attributes, constructor, arguments, isMarkedNullable)
 
 private fun captureArguments(type: UnwrappedType, status: CaptureStatus): List<TypeProjection>? {
     if (type.arguments.size != type.constructor.parameters.size) return null
@@ -199,7 +199,7 @@ class NewCapturedType(
     val captureStatus: CaptureStatus,
     override val constructor: NewCapturedTypeConstructor,
     val lowerType: UnwrappedType?, // todo check lower type for nullable captured types
-    override val annotations: Annotations = Annotations.EMPTY,
+    override val attributes: TypeAttributes = TypeAttributes.Empty,
     override val isMarkedNullable: Boolean = false,
     val isProjectionNotNull: Boolean = false
 ) : SimpleType(), CapturedTypeMarker {
@@ -212,11 +212,11 @@ class NewCapturedType(
     override val memberScope: MemberScope // todo what about foo().bar() where foo() return captured type?
         get() = ErrorUtils.createErrorScope("No member resolution should be done on captured type!", true)
 
-    override fun replaceAnnotations(newAnnotations: Annotations) =
-        NewCapturedType(captureStatus, constructor, lowerType, newAnnotations, isMarkedNullable)
+    override fun replaceAttributes(newAttributes: TypeAttributes): SimpleType =
+        NewCapturedType(captureStatus, constructor, lowerType, newAttributes, isMarkedNullable, isProjectionNotNull)
 
     override fun makeNullableAsSpecified(newNullability: Boolean) =
-        NewCapturedType(captureStatus, constructor, lowerType, annotations, newNullability)
+        NewCapturedType(captureStatus, constructor, lowerType, attributes, newNullability)
 
     @TypeRefinement
     override fun refine(kotlinTypeRefiner: KotlinTypeRefiner) =
@@ -224,7 +224,7 @@ class NewCapturedType(
             captureStatus,
             constructor.refine(kotlinTypeRefiner),
             lowerType?.let { kotlinTypeRefiner.refineType(it).unwrap() },
-            annotations,
+            attributes,
             isMarkedNullable
         )
 }

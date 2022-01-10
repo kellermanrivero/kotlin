@@ -332,10 +332,10 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
         arguments: List<TypeArgumentMarker>,
         nullable: Boolean,
         isExtensionFunction: Boolean,
-        annotations: List<AnnotationMarker>?
+        attributes: List<AnnotationMarker>?
     ): SimpleTypeMarker {
-        val ourAnnotations = annotations?.filterIsInstance<IrConstructorCall>()
-        require(ourAnnotations?.size == annotations?.size)
+        val ourAnnotations = attributes?.filterIsInstance<IrConstructorCall>()
+        require(ourAnnotations?.size == attributes?.size)
         return IrSimpleTypeImpl(
             constructor as IrClassifierSymbol,
             nullable,
@@ -383,6 +383,10 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
     override fun findCommonIntegerLiteralTypesSuperType(explicitSupertypes: List<SimpleTypeMarker>): SimpleTypeMarker? =
         irBuiltIns.intType as IrSimpleType
 
+    override fun KotlinTypeMarker.replaceCustomAttributes(newAttributes: List<AnnotationMarker>): KotlinTypeMarker = this
+
+    override fun unionTypeAttributes(types: List<KotlinTypeMarker>): List<AnnotationMarker> = emptyList()
+
     override fun KotlinTypeMarker.isNullableType(): Boolean =
         this is IrType && isNullable()
 
@@ -397,9 +401,18 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
     override fun SimpleTypeMarker.isPrimitiveType(): Boolean =
         this is IrSimpleType && irTypePredicates_isPrimitiveType()
 
-    override fun KotlinTypeMarker.getAnnotations(): List<AnnotationMarker> {
+    override fun KotlinTypeMarker.getAttributes(): List<AnnotationMarker> {
         require(this is IrType)
         return this.annotations.map { object : AnnotationMarker, IrElement by it {} }
+    }
+
+    override fun KotlinTypeMarker.hasCustomAttributes(): Boolean {
+        return false
+    }
+
+    override fun KotlinTypeMarker.getCustomAttributes(): List<AnnotationMarker> {
+        require(this is IrType)
+        return emptyList()
     }
 
     override fun createErrorType(debugName: String): SimpleTypeMarker {

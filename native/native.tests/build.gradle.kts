@@ -47,24 +47,29 @@ enum class TestProperty(shortName: String) {
     // effect on other Gradle tasks (ex: :kotlin-native:dist) that might be executed along with test task.
     KOTLIN_NATIVE_HOME("nativeHome"),
     COMPILER_CLASSPATH("compilerClasspath"),
+    TEST_TARGET("target"),
     TEST_MODE("mode"),
+    OPTIMIZATION_MODE("optimizationMode"),
+    MEMORY_MODEL("memoryModel"),
+    USE_THREAD_STATE_CHECKER("useThreadStateChecker"),
+    GC_TYPE("gcType"),
     USE_CACHE("useCache"),
     EXECUTION_TIMEOUT("executionTimeout");
 
     private val propertyName = "kotlin.internal.native.test.$shortName"
 
-    fun setUpFromGradleProperty(task: Test, defaultValue: () -> Any? = { null }) {
-        val propertyValue = task.project.findProperty(propertyName) ?: defaultValue()
+    fun setUpFromGradleProperty(task: Test, defaultValue: () -> String? = { null }) {
+        val propertyValue = readGradleProperty(task) ?: defaultValue()
         if (propertyValue != null) task.systemProperty(propertyName, propertyValue)
     }
+
+    fun readGradleProperty(task: Test): String? = task.project.findProperty(propertyName)?.toString()
 }
 
 fun blackBoxTest(taskName: String, vararg tags: String) = projectTest(taskName, jUnitMode = JUnitMode.JUnit5) {
     group = "verification"
 
     if (kotlinBuildProperties.isKotlinNativeEnabled) {
-        dependsOn(":kotlin-native:dist")
-
         workingDir = rootDir
         outputs.upToDateWhen {
             // Don't treat any test task as up-to-date, no matter what.
@@ -90,15 +95,29 @@ fun blackBoxTest(taskName: String, vararg tags: String) = projectTest(taskName, 
         }
 
         TestProperty.KOTLIN_NATIVE_HOME.setUpFromGradleProperty(this) {
+            val testTarget = TestProperty.TEST_TARGET.readGradleProperty(this)
+            dependsOn(if (testTarget != null) ":kotlin-native:${testTarget}CrossDist" else ":kotlin-native:dist")
             project(":kotlin-native").projectDir.resolve("dist").absolutePath
         }
 
         TestProperty.COMPILER_CLASSPATH.setUpFromGradleProperty(this) {
-            configurations.detachedConfiguration(dependencies.project(":kotlin-native-compiler-embeddable")).files.joinToString(";")
+            val customNativeHome = TestProperty.KOTLIN_NATIVE_HOME.readGradleProperty(this)
+            if (customNativeHome != null) {
+                file(customNativeHome).resolve("konan/lib/kotlin-native-compiler-embeddable.jar").absolutePath
+            } else {
+                val kotlinNativeCompilerEmbeddable = configurations.detachedConfiguration(dependencies.project(":kotlin-native-compiler-embeddable"))
+                dependsOn(kotlinNativeCompilerEmbeddable)
+                kotlinNativeCompilerEmbeddable.files.joinToString(";")
+            }
         }
 
         // Pass Gradle properties as JVM properties so test process can read them.
+        TestProperty.TEST_TARGET.setUpFromGradleProperty(this)
         TestProperty.TEST_MODE.setUpFromGradleProperty(this)
+        TestProperty.OPTIMIZATION_MODE.setUpFromGradleProperty(this)
+        TestProperty.MEMORY_MODEL.setUpFromGradleProperty(this)
+        TestProperty.USE_THREAD_STATE_CHECKER.setUpFromGradleProperty(this)
+        TestProperty.GC_TYPE.setUpFromGradleProperty(this)
         TestProperty.USE_CACHE.setUpFromGradleProperty(this)
         TestProperty.EXECUTION_TIMEOUT.setUpFromGradleProperty(this)
 
@@ -146,12 +165,8 @@ fun groupingTest(taskName: String, vararg dependencyTasks: Any) = getOrCreateTas
 val infrastructureTest = blackBoxTest("infrastructureTest", "infrastructure")
 val externalTest = blackBoxTest("externalTest", "external")
 
-// Tasks that do not run tests directly, but group other test tasks. Most frequent use case: running groups of tests on CI server.
-val dailyTest = groupingTest("dailyTest", externalTest)
-val fullTest = groupingTest("fullTest", dailyTest, infrastructureTest)
-
-// "test" task is created by convention. We can't just remove it. So, let it be just an alias for daily test task.
-val test by groupingTest("test", dailyTest)
+// "test" task is created by convention. We can't just remove it. So, let it be just an alias for external test task.
+val test by groupingTest("test", externalTest)
 
 gradle.taskGraph.whenReady {
     allTasks.forEach { task ->

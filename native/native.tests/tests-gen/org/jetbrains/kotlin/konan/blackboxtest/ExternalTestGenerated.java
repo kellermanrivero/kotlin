@@ -1862,38 +1862,44 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
             }
 
             @Nested
-            @TestMetadata("compiler/testData/codegen/box/builtinStubMethods/extendJavaCollections")
+            @TestMetadata("compiler/testData/codegen/box/builtinStubMethods/extendJavaClasses")
             @TestDataPath("$PROJECT_ROOT")
             @Tag("external")
             @UseExtTestCaseGroupProvider()
-            public class ExtendJavaCollections {
+            public class ExtendJavaClasses {
                 @Test
                 @TestMetadata("abstractSet.kt")
                 public void testAbstractSet() throws Exception {
-                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaCollections/abstractSet.kt");
+                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaClasses/abstractSet.kt");
                 }
 
                 @Test
-                public void testAllFilesPresentInExtendJavaCollections() throws Exception {
-                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/builtinStubMethods/extendJavaCollections"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+                public void testAllFilesPresentInExtendJavaClasses() throws Exception {
+                    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/builtinStubMethods/extendJavaClasses"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
                 }
 
                 @Test
                 @TestMetadata("arrayList.kt")
                 public void testArrayList() throws Exception {
-                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaCollections/arrayList.kt");
+                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaClasses/arrayList.kt");
+                }
+
+                @Test
+                @TestMetadata("extendArrayListThroughKotlin.kt")
+                public void testExtendArrayListThroughKotlin() throws Exception {
+                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaClasses/extendArrayListThroughKotlin.kt");
                 }
 
                 @Test
                 @TestMetadata("hashMap.kt")
                 public void testHashMap() throws Exception {
-                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaCollections/hashMap.kt");
+                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaClasses/hashMap.kt");
                 }
 
                 @Test
                 @TestMetadata("hashSet.kt")
                 public void testHashSet() throws Exception {
-                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaCollections/hashSet.kt");
+                    runTest("compiler/testData/codegen/box/builtinStubMethods/extendJavaClasses/hashSet.kt");
                 }
             }
 
@@ -3479,6 +3485,12 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
             @TestMetadata("kt48927_privateMethodOnDerivedCastToBase.kt")
             public void testKt48927_privateMethodOnDerivedCastToBase() throws Exception {
                 runTest("compiler/testData/codegen/box/casts/kt48927_privateMethodOnDerivedCastToBase.kt");
+            }
+
+            @Test
+            @TestMetadata("kt50577.kt")
+            public void testKt50577() throws Exception {
+                runTest("compiler/testData/codegen/box/casts/kt50577.kt");
             }
 
             @Test
@@ -6083,12 +6095,6 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
             @TestMetadata("kt9532.kt")
             public void testKt9532() throws Exception {
                 runTest("compiler/testData/codegen/box/constants/kt9532.kt");
-            }
-
-            @Test
-            @TestMetadata("kt9532_lv10.kt")
-            public void testKt9532_lv10() throws Exception {
-                runTest("compiler/testData/codegen/box/constants/kt9532_lv10.kt");
             }
 
             @Test
@@ -12836,6 +12842,12 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("kt24209.kt")
+            public void testKt24209() throws Exception {
+                runTest("compiler/testData/codegen/box/elvis/kt24209.kt");
+            }
+
+            @Test
             @TestMetadata("kt6694ExactAnnotationForElvis.kt")
             public void testKt6694ExactAnnotationForElvis() throws Exception {
                 runTest("compiler/testData/codegen/box/elvis/kt6694ExactAnnotationForElvis.kt");
@@ -15993,6 +16005,8 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
                 register("compiler/testData/codegen/box/inlineClasses/extLambdaInInlineClassFun.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
                 register("compiler/testData/codegen/box/inlineClasses/extLambdaInInlineClassFun2.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
                 register("compiler/testData/codegen/box/inlineClasses/fieldNameClash.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
+                register("compiler/testData/codegen/box/inlineClasses/funInterfaceDoubleSuffux.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
+                register("compiler/testData/codegen/box/inlineClasses/funInterfaceDoubleSuffux2.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
                 register("compiler/testData/codegen/box/inlineClasses/functionExpression.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
                 register("compiler/testData/codegen/box/inlineClasses/genericInlineClassSynthMembers.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
                 register("compiler/testData/codegen/box/inlineClasses/genericVararg2ndConstructor.kt", TransformersFunctions.getRemoveOptionalJvmInlineAnnotation());
@@ -16547,6 +16561,20 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
             public void testFieldNameClash() throws Exception {
                 // There is a registered source transformer for the testcase: TransformersFunctions.getRemoveOptionalJvmInlineAnnotation()
                 runTest("compiler/testData/codegen/box/inlineClasses/fieldNameClash.kt");
+            }
+
+            @Test
+            @TestMetadata("funInterfaceDoubleSuffux.kt")
+            public void testFunInterfaceDoubleSuffux() throws Exception {
+                // There is a registered source transformer for the testcase: TransformersFunctions.getRemoveOptionalJvmInlineAnnotation()
+                runTest("compiler/testData/codegen/box/inlineClasses/funInterfaceDoubleSuffux.kt");
+            }
+
+            @Test
+            @TestMetadata("funInterfaceDoubleSuffux2.kt")
+            public void testFunInterfaceDoubleSuffux2() throws Exception {
+                // There is a registered source transformer for the testcase: TransformersFunctions.getRemoveOptionalJvmInlineAnnotation()
+                runTest("compiler/testData/codegen/box/inlineClasses/funInterfaceDoubleSuffux2.kt");
             }
 
             @Test
@@ -31759,6 +31787,12 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("kt47279.kt")
+            public void testKt47279() throws Exception {
+                runTest("compiler/testData/codegen/box/regressions/kt47279.kt");
+            }
+
+            @Test
             @TestMetadata("kt5056.kt")
             public void testKt5056() throws Exception {
                 runTest("compiler/testData/codegen/box/regressions/kt5056.kt");
@@ -37417,6 +37451,12 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
             }
 
             @Test
+            @TestMetadata("kt48498.kt")
+            public void testKt48498() throws Exception {
+                runTest("compiler/testData/codegen/boxInline/delegatedProperty/kt48498.kt");
+            }
+
+            @Test
             @TestMetadata("local.kt")
             public void testLocal() throws Exception {
                 runTest("compiler/testData/codegen/boxInline/delegatedProperty/local.kt");
@@ -37840,6 +37880,12 @@ public class ExternalTestGenerated extends AbstractExternalNativeBlackBoxTest {
             @TestMetadata("innerInlineFunCapturesOuterWithInlineClass.kt")
             public void testInnerInlineFunCapturesOuterWithInlineClass() throws Exception {
                 runTest("compiler/testData/codegen/boxInline/innerClasses/innerInlineFunCapturesOuterWithInlineClass.kt");
+            }
+
+            @Test
+            @TestMetadata("kt12126.kt")
+            public void testKt12126() throws Exception {
+                runTest("compiler/testData/codegen/boxInline/innerClasses/kt12126.kt");
             }
         }
 

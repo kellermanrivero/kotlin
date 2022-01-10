@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.components.expressionTypeProvider
 
+import org.jetbrains.kotlin.analysis.api.components.KtTypeRendererOptions
 import org.jetbrains.kotlin.analysis.api.impl.barebone.test.FrontendApiTestConfiguratorService
 import org.jetbrains.kotlin.analysis.api.impl.barebone.test.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.api.impl.base.test.test.framework.AbstractHLApiSingleFileTest
@@ -15,7 +16,7 @@ import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 
-abstract class AbstractHLExpressionTypeTest(configurator: FrontendApiTestConfiguratorService) : AbstractHLApiSingleFileTest(configurator) {
+abstract class AbstractHLExpressionTypeTest : AbstractHLApiSingleFileTest() {
     override fun doTestByFileStructure(ktFile: KtFile, module: TestModule, testServices: TestServices) {
         val selected = testServices.expressionMarkerProvider.getSelectedElement(ktFile)
         val expression = when (selected) {
@@ -24,12 +25,16 @@ abstract class AbstractHLExpressionTypeTest(configurator: FrontendApiTestConfigu
             else -> null
         } ?: error("expect an expression but got ${selected.text}")
         val type = executeOnPooledThreadInReadAction {
-            analyseForTest(expression) { expression.getKtType()?.render() }
+            analyseForTest(expression) { expression.getKtType()?.render(TYPE_RENDERING_OPTIONS) }
         }
         val actual = buildString {
             appendLine("expression: ${expression.text}")
             appendLine("type: $type")
         }
         testServices.assertions.assertEqualsToTestDataFileSibling(actual)
+    }
+
+    companion object {
+        private val TYPE_RENDERING_OPTIONS = KtTypeRendererOptions.DEFAULT.copy(renderUnresolvedTypeAsResolved = false)
     }
 }

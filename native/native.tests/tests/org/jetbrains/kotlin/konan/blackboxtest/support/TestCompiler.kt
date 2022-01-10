@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.konan.blackboxtest.support.TestCompilationResult.Com
 import org.jetbrains.kotlin.konan.blackboxtest.support.TestModule.Companion.allDependencies
 import org.jetbrains.kotlin.konan.blackboxtest.support.TestModule.Companion.allFriends
 import org.jetbrains.kotlin.konan.blackboxtest.support.settings.*
+import org.jetbrains.kotlin.konan.blackboxtest.support.settings.CacheKind.Companion.rootCacheDir
 import org.jetbrains.kotlin.konan.blackboxtest.support.util.*
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import java.io.*
@@ -50,6 +51,10 @@ internal class TestCompilationFactory {
                 targets = settings.get(),
                 home = settings.get(),
                 classLoader = settings.get(),
+                optimizationMode = settings.get(),
+                memoryModel = settings.get(),
+                threadStateChecker = settings.get(),
+                gcType = settings.get(),
                 freeCompilerArgs = freeCompilerArgs,
                 sourceModules = rootModules,
                 dependencies = TestCompilationDependencies(libraries = libraries, friends = friends),
@@ -67,7 +72,7 @@ internal class TestCompilationFactory {
                             add(testRunnerArg)
                         }
                     }
-                    settings.getRootCacheDirectory(debuggable = true)?.let { rootCacheDir ->
+                    settings.get<CacheKind>().rootCacheDir?.let { rootCacheDir ->
                         add("-Xcache-directory=$rootCacheDir")
                     }
                 }
@@ -91,6 +96,10 @@ internal class TestCompilationFactory {
                 targets = settings.get(),
                 home = settings.get(),
                 classLoader = settings.get(),
+                optimizationMode = settings.get(),
+                memoryModel = settings.get(),
+                threadStateChecker = settings.get(),
+                gcType = settings.get(),
                 freeCompilerArgs = freeCompilerArgs,
                 sourceModules = sourceModules,
                 dependencies = TestCompilationDependencies(libraries = libraries, friends = friends),
@@ -239,6 +248,10 @@ private class TestCompilationImpl(
     private val targets: KotlinNativeTargets,
     private val home: KotlinNativeHome,
     private val classLoader: KotlinNativeClassLoader,
+    private val optimizationMode: OptimizationMode,
+    private val memoryModel: MemoryModel,
+    private val threadStateChecker: ThreadStateChecker,
+    private val gcType: GCType,
     private val freeCompilerArgs: TestCompilerArgs,
     private val sourceModules: Collection<TestModule>,
     private val dependencies: TestCompilationDependencies,
@@ -257,7 +270,6 @@ private class TestCompilationImpl(
     private fun ArgsBuilder.applyCommonArgs() {
         add(
             "-enable-assertions",
-            "-g",
             "-target", targets.testTarget.name,
             "-repo", home.dir.resolve("klib").path,
             "-output", expectedArtifactFile.path,
@@ -265,6 +277,10 @@ private class TestCompilationImpl(
             "-Xverify-ir",
             "-Xbinary=runtimeAssertionsMode=panic"
         )
+        optimizationMode.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
+        memoryModel.compilerFlags?.let { compilerFlags -> add(compilerFlags) }
+        threadStateChecker.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
+        gcType.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
 
         addFlattened(dependencies.libraries) { library -> listOf("-l", library.resultingArtifactPath) }
         dependencies.friends.takeIf(Collection<*>::isNotEmpty)?.let { friends ->

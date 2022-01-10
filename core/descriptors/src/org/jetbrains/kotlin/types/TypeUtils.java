@@ -48,7 +48,7 @@ public class TypeUtils {
 
         @NotNull
         @Override
-        public SimpleType replaceAnnotations(@NotNull Annotations newAnnotations) {
+        public SimpleType replaceAttributes(@NotNull TypeAttributes newAttributes) {
             throw new IllegalStateException(name);
         }
 
@@ -221,7 +221,7 @@ public class TypeUtils {
     ) {
         List<TypeProjection> arguments = getDefaultTypeProjections(typeConstructor.getParameters());
         return KotlinTypeFactory.simpleTypeWithNonTrivialMemberScope(
-                Annotations.Companion.getEMPTY(),
+                TypeAttributes.Companion.getEmpty(),
                 typeConstructor,
                 arguments,
                 false,

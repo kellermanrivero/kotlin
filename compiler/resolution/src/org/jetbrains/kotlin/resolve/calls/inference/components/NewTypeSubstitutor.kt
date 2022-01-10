@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.resolve.calls.inference.components
 
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
-import org.jetbrains.kotlin.descriptors.annotations.CompositeAnnotations
 import org.jetbrains.kotlin.resolve.calls.inference.isCaptured
 import org.jetbrains.kotlin.resolve.calls.inference.model.TypeVariableFromCallableDescriptor
 import org.jetbrains.kotlin.resolve.calls.inference.substitute
@@ -148,7 +147,9 @@ interface NewTypeSubstitutor : TypeSubstitutorMarker {
         // simple classifier type
         var replacement = substituteNotNullTypeWithConstructor(typeConstructor) ?: return null
         if (keepAnnotation) {
-            replacement = replacement.replaceAnnotations(CompositeAnnotations(replacement.annotations, type.annotations))
+            replacement = replacement.replaceAttributes(
+                replacement.attributes.add(type.attributes)
+            )
         }
         if (type.isMarkedNullable) {
             replacement = replacement.makeNullableAsSpecified(true)

@@ -12,14 +12,11 @@ import com.intellij.psi.search.SearchScope
 import com.intellij.psi.stubs.IStubElementType
 import com.intellij.psi.stubs.StubElement
 import org.jetbrains.annotations.NonNls
-import org.jetbrains.kotlin.asJava.classes.KtLightClass
-import org.jetbrains.kotlin.asJava.classes.LightClassInheritanceHelper
 import org.jetbrains.kotlin.asJava.classes.getOutermostClassOrObject
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolKind
-import org.jetbrains.kotlin.light.classes.symbol.classes.checkIsInheritor
 import org.jetbrains.kotlin.light.classes.symbol.classes.createInnerClasses
 import org.jetbrains.kotlin.light.classes.symbol.classes.getOrCreateFirLightClass
 import org.jetbrains.kotlin.load.java.structure.LightClassOriginKind
@@ -59,14 +56,9 @@ internal abstract class FirLightClassForClassOrObjectSymbol(
 
     private val _typeParameterList: PsiTypeParameterList? by lazyPub {
         hasTypeParameters().ifTrue {
-            val shiftCount = classOrObjectSymbol.isInner.ifTrue {
-                (parent as? FirLightClassForClassOrObjectSymbol)?.classOrObjectSymbol?.typeParameters?.count()
-            } ?: 0
-
             FirLightTypeParameterListForSymbol(
                 owner = this,
                 symbolWithTypeParameterList = classOrObjectSymbol,
-                innerShiftCount = shiftCount
             )
         }
     }
@@ -134,20 +126,6 @@ internal abstract class FirLightClassForClassOrObjectSymbol(
     abstract override fun isEnum(): Boolean
 
     override fun isValid(): Boolean = kotlinOrigin?.isValid ?: true
-
-    override fun isInheritor(baseClass: PsiClass, checkDeep: Boolean): Boolean {
-        if (manager.areElementsEquivalent(baseClass, this)) return false
-        LightClassInheritanceHelper.getService(project).isInheritor(this, baseClass, checkDeep).ifSure { return it }
-
-        val thisClassOrigin = kotlinOrigin
-        val baseClassOrigin = (baseClass as? KtLightClass)?.kotlinOrigin
-
-        return if (baseClassOrigin != null && thisClassOrigin != null) {
-            thisClassOrigin.checkIsInheritor(baseClassOrigin, checkDeep)
-        } else {
-            InheritanceImplUtil.isInheritor(this, baseClass, checkDeep)
-        }
-    }
 
     override fun toString() =
         "${this::class.java.simpleName}:${kotlinOrigin?.getDebugText()}"

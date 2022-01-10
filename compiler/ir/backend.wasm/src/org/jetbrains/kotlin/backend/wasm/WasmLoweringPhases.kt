@@ -98,7 +98,7 @@ private val wrapInlineDeclarationsWithReifiedTypeParametersPhase = makeWasmModul
 
 private val functionInliningPhase = makeCustomWasmModulePhase(
     { context, module ->
-        FunctionInlining(context).inline(module)
+        FunctionInlining(context, null, true).inline(module)
         module.patchDeclarationParents()
     },
     name = "FunctionInliningPhase",
@@ -496,6 +496,18 @@ private val forLoopsLoweringPhase = makeWasmModulePhase(
     description = "[Optimization] For loops lowering"
 )
 
+private val propertyLazyInitLoweringPhase = makeWasmModulePhase(
+    ::PropertyLazyInitLowering,
+    name = "PropertyLazyInitLowering",
+    description = "Make property init as lazy"
+)
+
+private val removeInitializersForLazyProperties = makeWasmModulePhase(
+    ::RemoveInitializersForLazyProperties,
+    name = "RemoveInitializersForLazyProperties",
+    description = "Remove property initializers if they was initialized lazily"
+)
+
 private val propertyAccessorInlinerLoweringPhase = makeWasmModulePhase(
     ::PropertyAccessorInlineLowering,
     name = "PropertyAccessorInlineLowering",
@@ -578,6 +590,8 @@ val wasmPhases = NamedCompilerPhase(
             returnableBlockLoweringPhase then
 
             forLoopsLoweringPhase then
+            propertyLazyInitLoweringPhase then
+            removeInitializersForLazyProperties then
             propertyAccessorInlinerLoweringPhase then
             stringConcatenationLowering then
 

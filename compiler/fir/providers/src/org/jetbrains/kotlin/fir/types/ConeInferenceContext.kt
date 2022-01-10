@@ -58,10 +58,10 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
         arguments: List<TypeArgumentMarker>,
         nullable: Boolean,
         isExtensionFunction: Boolean,
-        annotations: List<AnnotationMarker>?
+        attributes: List<AnnotationMarker>?
     ): SimpleTypeMarker {
-        val attributesList = annotations?.filterIsInstanceTo<ConeAttribute<*>, MutableList<ConeAttribute<*>>>(mutableListOf())
-        val attributes: ConeAttributes = if (isExtensionFunction) {
+        val attributesList = attributes?.filterIsInstanceTo<ConeAttribute<*>, MutableList<ConeAttribute<*>>>(mutableListOf())
+        val coneAttributes: ConeAttributes = if (isExtensionFunction) {
             require(constructor is ConeClassLikeLookupTag && constructor.isBuiltinFunctionalType())
             // We don't want to create new instance of ConeAttributes which
             //   contains only CompilerConeAttributes.ExtensionFunctionType
@@ -81,12 +81,12 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
                 constructor,
                 (arguments as List<ConeTypeProjection>).toTypedArray(),
                 nullable,
-                attributes,
+                coneAttributes,
             )
             is ConeTypeParameterLookupTag -> ConeTypeParameterTypeImpl(
                 constructor,
                 nullable,
-                attributes
+                coneAttributes
             )
             else -> error("!")
         }
@@ -398,6 +398,27 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
 
     override fun findCommonIntegerLiteralTypesSuperType(explicitSupertypes: List<SimpleTypeMarker>): SimpleTypeMarker? {
         return ConeIntegerLiteralTypeImpl.findCommonSuperType(explicitSupertypes)
+    }
+
+    override fun unionTypeAttributes(types: List<KotlinTypeMarker>): List<AnnotationMarker> {
+        @Suppress("UNCHECKED_CAST")
+        return (types as List<ConeKotlinType>).map { it.attributes }.reduce { x, y -> x.union(y) }.toList()
+    }
+
+    private fun AnnotationMarker.isCustomAttribute(): Boolean {
+        val compilerAttributes = CompilerConeAttributes.classIdByCompilerAttribute
+        return this !in compilerAttributes && this !is CustomAnnotationTypeAttribute
+    }
+
+    override fun KotlinTypeMarker.replaceCustomAttributes(newAttributes: List<AnnotationMarker>): KotlinTypeMarker {
+        require(this is ConeKotlinType)
+        @Suppress("UNCHECKED_CAST")
+        val newCustomAttributes = (newAttributes as List<ConeAttribute<*>>).filter { it.isCustomAttribute() }
+        val attributesToKeep = this.attributes.filterNot { it.isCustomAttribute() }
+        return withAttributes(
+            ConeAttributes.create(newCustomAttributes + attributesToKeep),
+            this@ConeInferenceContext
+        )
     }
 
     override fun TypeConstructorMarker.getApproximatedIntegerLiteralType(): KotlinTypeMarker {

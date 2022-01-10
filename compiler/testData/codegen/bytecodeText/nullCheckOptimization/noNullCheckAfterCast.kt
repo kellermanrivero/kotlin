@@ -28,7 +28,6 @@ fun getB(): B = B()
 
 // JVM_TEMPLATES
 // 1 IFNONNULL
-
-// There should be no null checks in the bytecode.
 // JVM_IR_TEMPLATES
 // 0 IFNONNULL
+// 1 INVOKESTATIC kotlin/jvm/internal/Intrinsics.checkNotNull \(Ljava/lang/Object;Ljava/lang/String;\)V

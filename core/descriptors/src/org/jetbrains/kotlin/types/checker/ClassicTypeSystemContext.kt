@@ -26,6 +26,8 @@ import org.jetbrains.kotlin.resolve.unsubstitutedUnderlyingType
 import org.jetbrains.kotlin.types.*
 import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.types.typeUtil.*
+import org.jetbrains.kotlin.utils.addIfNotNull
+import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.types.typeUtil.isSignedOrUnsignedNumberType as classicIsSignedOrUnsignedNumberType
 
@@ -486,7 +488,7 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
     override fun CapturedTypeMarker.withNotNullProjection(): KotlinTypeMarker {
         require(this is NewCapturedType, this::errorMessage)
 
-        return NewCapturedType(captureStatus, constructor, lowerType, annotations, isMarkedNullable, isProjectionNotNull = true)
+        return NewCapturedType(captureStatus, constructor, lowerType, attributes, isMarkedNullable, isProjectionNotNull = true)
     }
 
     override fun CapturedTypeMarker.isProjectionNotNull(): Boolean {
@@ -516,12 +518,11 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         arguments: List<TypeArgumentMarker>,
         nullable: Boolean,
         isExtensionFunction: Boolean,
-        annotations: List<AnnotationMarker>?
+        attributes: List<AnnotationMarker>?
     ): SimpleTypeMarker {
         require(constructor is TypeConstructor, constructor::errorMessage)
 
-        val ourAnnotations = annotations?.filterIsInstance<AnnotationDescriptor>()
-        require(ourAnnotations?.size == annotations?.size)
+        val ourAnnotations = attributes?.firstIsInstanceOrNull<AnnotationsTypeAttribute>()?.annotations?.toList()
 
         fun createExtensionFunctionAnnotation() = BuiltInAnnotationDescriptor(builtIns, FqNames.extensionFunctionType, emptyMap())
 
@@ -533,7 +534,12 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         }
 
         @Suppress("UNCHECKED_CAST")
-        return KotlinTypeFactory.simpleType(resultingAnnotations, constructor, arguments as List<TypeProjection>, nullable)
+        return KotlinTypeFactory.simpleType(
+            DefaultTypeAttributeTranslator.toAttributes(resultingAnnotations),
+            constructor,
+            arguments as List<TypeProjection>,
+            nullable
+        )
     }
 
     override fun createTypeArgument(type: KotlinTypeMarker, variance: TypeVariance): TypeArgumentMarker {
@@ -634,6 +640,21 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         return IntegerLiteralTypeConstructor.findCommonSuperType(explicitSupertypes)
     }
 
+    override fun unionTypeAttributes(types: List<KotlinTypeMarker>): List<AnnotationMarker> {
+        @Suppress("UNCHECKED_CAST")
+        return (types as List<KotlinType>).map { it.unwrap().attributes }.reduce { x, y -> x.union(y) }.toList()
+    }
+
+    override fun KotlinTypeMarker.replaceCustomAttributes(newAttributes: List<AnnotationMarker>): KotlinTypeMarker {
+        require(this is KotlinType)
+        @Suppress("UNCHECKED_CAST")
+        val attributes = (newAttributes as List<TypeAttribute<*>>).filterNot { it is AnnotationsTypeAttribute }.toMutableList()
+        attributes.addIfNotNull(this.attributes.annotationsAttribute)
+        return this.unwrap().replaceAttributes(
+            TypeAttributes.create(attributes)
+        )
+    }
+
     override fun TypeConstructorMarker.isError(): Boolean {
         require(this is TypeConstructor, this::errorMessage)
         return ErrorUtils.isError(declarationDescriptor)
@@ -649,9 +670,19 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         return KotlinBuiltIns.isPrimitiveType(this)
     }
 
-    override fun KotlinTypeMarker.getAnnotations(): List<AnnotationMarker> {
+    override fun KotlinTypeMarker.getAttributes(): List<AnnotationMarker> {
         require(this is KotlinType, this::errorMessage)
-        return this.annotations.toList()
+        return this.attributes.toList()
+    }
+
+    override fun KotlinTypeMarker.hasCustomAttributes(): Boolean {
+        require(this is KotlinType, this::errorMessage)
+        return !this.attributes.isEmpty() && this.getCustomAttributes().size > 0
+    }
+
+    override fun KotlinTypeMarker.getCustomAttributes(): List<AnnotationMarker> {
+        require(this is KotlinType, this::errorMessage)
+        return this.attributes.filterNot { it is AnnotationsTypeAttribute }
     }
 
     override fun captureFromExpression(type: KotlinTypeMarker): KotlinTypeMarker? {

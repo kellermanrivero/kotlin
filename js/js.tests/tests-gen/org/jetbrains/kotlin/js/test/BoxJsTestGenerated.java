@@ -4211,6 +4211,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         }
 
         @Test
+        @TestMetadata("interfaceInheritanceCrossModule.kt")
+        public void testInterfaceInheritanceCrossModule() throws Exception {
+            runTest("js/js.translator/testData/box/incremental/interfaceInheritanceCrossModule.kt");
+        }
+
+        @Test
         @TestMetadata("jsModule.kt")
         public void testJsModule() throws Exception {
             runTest("js/js.translator/testData/box/incremental/jsModule.kt");
@@ -4226,6 +4232,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("multipleReimport.kt")
         public void testMultipleReimport() throws Exception {
             runTest("js/js.translator/testData/box/incremental/multipleReimport.kt");
+        }
+
+        @Test
+        @TestMetadata("nestedClassesInDependency.kt")
+        public void testNestedClassesInDependency() throws Exception {
+            runTest("js/js.translator/testData/box/incremental/nestedClassesInDependency.kt");
         }
 
         @Test
@@ -6908,6 +6920,12 @@ public class BoxJsTestGenerated extends AbstractBoxJsTest {
         @TestMetadata("samePackageNames.kt")
         public void testSamePackageNames() throws Exception {
             runTest("js/js.translator/testData/box/multiModule/samePackageNames.kt");
+        }
+
+        @Test
+        @TestMetadata("symbolRedeclaration.kt")
+        public void testSymbolRedeclaration() throws Exception {
+            runTest("js/js.translator/testData/box/multiModule/symbolRedeclaration.kt");
         }
 
         @Test

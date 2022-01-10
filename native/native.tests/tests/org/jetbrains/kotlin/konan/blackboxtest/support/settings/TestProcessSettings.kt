@@ -30,7 +30,7 @@ internal class KotlinNativeClassLoader(private val lazyClassLoader: Lazy<ClassLo
 }
 
 // TODO: in fact, only WITH_MODULES mode is supported now
-internal enum class TestMode(val description: String) {
+internal enum class TestMode(private val description: String) {
     ONE_STAGE(
         description = "Compile test files altogether without producing intermediate KLIBs."
     ),
@@ -40,7 +40,51 @@ internal enum class TestMode(val description: String) {
     WITH_MODULES(
         description = "Compile each test file as one or many modules (depending on MODULE directives declared in the file)." +
                 " Then link the KLIBs into the single executable file."
-    )
+    );
+
+    override fun toString() = description
+}
+
+/**
+ * Optimization mode to be applied.
+ */
+internal enum class OptimizationMode(private val description: String, val compilerFlag: String?) {
+    DEBUG("Build with debug information", "-g"),
+    OPT("Build with optimizations applied", "-opt"),
+    NO("Don't use any specific optimizations", null);
+
+    override fun toString() = description + compilerFlag?.let { " ($it)" }.orEmpty()
+}
+
+/**
+ * The Kotlin/Native memory model.
+ */
+internal enum class MemoryModel(val compilerFlags: List<String>?) {
+    DEFAULT(null),
+    EXPERIMENTAL(listOf("-memory-model", "experimental"));
+
+    override fun toString() = compilerFlags?.joinToString(prefix = "(", separator = " ", postfix = ")").orEmpty()
+}
+
+/**
+ * Thread state checked. Can be applied only with [MemoryModel.EXPERIMENTAL] and [OptimizationMode.DEBUG].
+ */
+internal enum class ThreadStateChecker(val compilerFlag: String?) {
+    DISABLED(null),
+    ENABLED("-Xcheck-state-at-external-calls");
+
+    override fun toString() = compilerFlag?.let { "($it)" }.orEmpty()
+}
+
+/**
+ * Garbage collector type. Can be applied only with [MemoryModel.EXPERIMENTAL].
+ */
+internal enum class GCType(val compilerFlag: String?) {
+    UNSPECIFIED(null),
+    NOOP("-Xgc=noop"),
+    STMS("-Xgc=stms");
+
+    override fun toString() = compilerFlag?.let { "($it)" }.orEmpty()
 }
 
 /**
@@ -59,24 +103,30 @@ internal class Timeouts(val executionTimeout: Duration)
 internal sealed interface CacheKind {
     object WithoutCache : CacheKind
 
-    object WithStaticCache : CacheKind {
-        fun getRootCacheDirectory(
-            kotlinNativeHome: KotlinNativeHome,
-            kotlinNativeTargets: KotlinNativeTargets,
-            debuggable: Boolean
-        ): File? = kotlinNativeHome.dir
+    class WithStaticCache(
+        kotlinNativeHome: KotlinNativeHome,
+        kotlinNativeTargets: KotlinNativeTargets,
+        optimizationMode: OptimizationMode
+    ) : CacheKind {
+        val rootCacheDir: File? = kotlinNativeHome.dir
             .resolve("klib/cache")
-            .resolve(computeCacheDirName(kotlinNativeTargets.testTarget, CACHE_KIND, debuggable))
-            .takeIf { it.exists() }
+            .resolve(
+                computeCacheDirName(
+                    testTarget = kotlinNativeTargets.testTarget,
+                    cacheKind = CACHE_KIND,
+                    debuggable = optimizationMode == OptimizationMode.DEBUG
+                )
+            ).takeIf { it.exists() }
 
-        private const val CACHE_KIND = "STATIC"
+        companion object {
+            private const val CACHE_KIND = "STATIC"
+        }
     }
 
     companion object {
+        val CacheKind.rootCacheDir: File? get() = safeAs<WithStaticCache>()?.rootCacheDir
+
         private fun computeCacheDirName(testTarget: KonanTarget, cacheKind: String, debuggable: Boolean) =
             "$testTarget${if (debuggable) "-g" else ""}$cacheKind"
     }
 }
-
-internal fun Settings.getRootCacheDirectory(debuggable: Boolean): File? =
-    get<CacheKind>().safeAs<CacheKind.WithStaticCache>()?.getRootCacheDirectory(get(), get(), debuggable)
