@@ -57,14 +57,14 @@ class BuilderInferenceSession(
     private val typeApproximator: TypeApproximator,
     private val missingSupertypesResolver: MissingSupertypesResolver,
     private val lambdaArgument: LambdaKotlinCallArgument
-) : ManyCandidatesResolver<CallableDescriptor>(
+) : StubTypesBasedInferenceSession<CallableDescriptor>(
     psiCallResolver, postponedArgumentsAnalyzer, kotlinConstraintSystemCompleter, callComponents, builtIns
 ) {
     private lateinit var lambda: ResolvedLambdaAtom
     private val commonSystem = NewConstraintSystemImpl(callComponents.constraintInjector, builtIns, callComponents.kotlinTypeRefiner)
 
     init {
-        if (topLevelCallContext.inferenceSession is ManyCandidatesResolver<*>) {
+        if (topLevelCallContext.inferenceSession is StubTypesBasedInferenceSession<*>) {
             topLevelCallContext.inferenceSession.addNestedInferenceSession(this)
         }
         stubsForPostponedVariables.keys.forEach(commonSystem::registerVariable)
@@ -217,11 +217,13 @@ class BuilderInferenceSession(
 
     override fun currentConstraintSystem() = ConstraintStorage.Empty
 
-    fun getNotFixedToInferredTypesSubstitutor(): NewTypeSubstitutor {
-        val currentSubstitutor =
-            commonSystem.buildCurrentSubstitutor().cast<NewTypeSubstitutor>().takeIf { !it.isEmpty } ?: return EmptySubstitutor
-        return ComposedSubstitutor(currentSubstitutor, createNonFixedTypeToVariableSubstitutor())
-    }
+    fun getNotFixedToInferredTypesSubstitutor(): NewTypeSubstitutor =
+        ComposedSubstitutor(getCurrentSubstitutor(), createNonFixedTypeToVariableSubstitutor())
+
+    fun getUsedStubTypes(): Set<StubTypeForBuilderInference> = stubsForPostponedVariables.values.toSet()
+
+    fun getCurrentSubstitutor(): NewTypeSubstitutor =
+        commonSystem.buildCurrentSubstitutor().cast<NewTypeSubstitutor>().takeIf { !it.isEmpty } ?: EmptySubstitutor
 
     override fun initializeLambda(lambda: ResolvedLambdaAtom) {
         this.lambda = lambda
@@ -269,7 +271,7 @@ class BuilderInferenceSession(
         for (nestedSession in nestedInferenceSessions) {
             when (nestedSession) {
                 is BuilderInferenceSession -> add(nestedSession)
-                is DelegatedPropertyInferenceSession -> addAll(nestedSession.getNestedBuilderInferenceSessions())
+                is DelegateInferenceSession -> addAll(nestedSession.getNestedBuilderInferenceSessions())
             }
         }
     }
@@ -438,10 +440,12 @@ class BuilderInferenceSession(
         integrateConstraints(initialStorage, nonFixedToVariablesSubstitutor, false)
 
         for (call in commonCalls) {
-            integrateConstraints(call.callResolutionResult.constraintSystem, nonFixedToVariablesSubstitutor, false)
+            val storage = call.callResolutionResult.constraintSystem.getBuilder().currentStorage()
+            integrateConstraints(storage, nonFixedToVariablesSubstitutor, false)
         }
         for (call in partiallyResolvedCallsInfo) {
-            integrateConstraints(call.callResolutionResult.constraintSystem, nonFixedToVariablesSubstitutor, true)
+            val storage = call.callResolutionResult.constraintSystem.getBuilder().currentStorage()
+            integrateConstraints(storage, nonFixedToVariablesSubstitutor, true)
         }
 
         return commonSystem.notFixedTypeVariables.all { it.value.constraints.isEmpty() }
@@ -469,7 +473,8 @@ class BuilderInferenceSession(
         nonFixedTypesToResultSubstitutor: NewTypeSubstitutor,
         nonFixedTypesToResult: Map<TypeConstructor, UnwrappedType>
     ) {
-        val resultingCallSubstitutor = completedCall.callResolutionResult.constraintSystem.fixedTypeVariables.entries
+        val storage = completedCall.callResolutionResult.constraintSystem.getBuilder().currentStorage()
+        val resultingCallSubstitutor = storage.fixedTypeVariables.entries
             .associate { it.key to nonFixedTypesToResultSubstitutor.safeSubstitute(it.value as UnwrappedType) } // TODO: SUB
 
         val resultingSubstitutor =

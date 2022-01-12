@@ -120,7 +120,7 @@ rootProject.apply {
 IdeVersionConfigurator.setCurrentIde(project)
 
 if (!project.hasProperty("versions.kotlin-native")) {
-    extra["versions.kotlin-native"] = "1.6.20-dev-5356"
+    extra["versions.kotlin-native"] = "1.7.0-dev-528"
 }
 
 
@@ -252,6 +252,16 @@ extra["compilerModulesForJps"] = listOf(
     ":core:compiler.common.jvm",
     ":core:descriptors",
     ":core:descriptors.jvm",
+    ":compiler:backend.common.jvm",
+    ":native:kotlin-native-utils",
+    ":js:js.serializer",
+    ":core:deserialization",
+    ":core:deserialization.common",
+    ":core:deserialization.common.jvm",
+    ":compiler:frontend.java",
+    ":core:metadata",
+    ":core:metadata.jvm",
+    ":jps:jps-common",
     ":kotlin-preloader",
     ":compiler:util",
     ":compiler:config",
@@ -270,6 +280,8 @@ extra["compilerArtifactsForIde"] = listOf(
     ":prepare:ide-plugin-dependencies:kotlin-compiler-for-ide",
     ":prepare:ide-plugin-dependencies:kotlin-compiler-cli-for-ide",
     ":prepare:ide-plugin-dependencies:kotlin-gradle-statistics-for-ide",
+    ":prepare:ide-plugin-dependencies:kotlin-jps-common-for-ide",
+    ":prepare:ide-plugin-dependencies:kotlin-jps-plugin-classpath",
     ":prepare:ide-plugin-dependencies:kotlinx-serialization-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:noarg-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:sam-with-receiver-compiler-plugin-for-ide",
@@ -808,7 +820,7 @@ tasks {
 
     register("jps-tests") {
         dependsOn("dist")
-        dependsOn(":jps-plugin:test")
+        dependsOn(":jps:jps-plugin:test")
     }
 
     register("frontendApiTests") {

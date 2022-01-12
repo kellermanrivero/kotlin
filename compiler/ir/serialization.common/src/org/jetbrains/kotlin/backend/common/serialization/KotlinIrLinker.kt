@@ -75,6 +75,8 @@ abstract class KotlinIrLinker(
                 override val moduleFragment: IrModuleFragment
                     get() = TODO("Not yet implemented")
                 override val moduleDependencies: Collection<IrModuleDeserializer> get() = emptyList()
+                override val kind: IrModuleDeserializerKind
+                    get() = TODO("Not yet implemented")
             }
         } else {
             throw SignatureIdNotFoundInModuleWithDependencies(

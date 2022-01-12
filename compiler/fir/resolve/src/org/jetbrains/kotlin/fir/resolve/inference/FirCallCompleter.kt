@@ -181,7 +181,7 @@ class FirCallCompleter(
             initialType,
             transformer.resolutionContext
         ) {
-            analyzer.analyze(candidate.system.asPostponedArgumentsAnalyzerContext(), it, candidate, completionMode)
+            analyzer.analyze(candidate.system, it, candidate, completionMode)
         }
     }
 
@@ -193,7 +193,7 @@ class FirCallCompleter(
         val csBuilder = candidate.system.getBuilder()
         csBuilder.registerVariable(returnVariable)
         val functionalType = csBuilder.buildCurrentSubstitutor()
-            .safeSubstitute(csBuilder.asConstraintSystemCompleterContext(), atom.expectedType!!) as ConeClassLikeType
+            .safeSubstitute(csBuilder, atom.expectedType!!) as ConeClassLikeType
         val size = functionalType.typeArguments.size
         val expectedType = ConeClassLikeTypeImpl(
             functionalType.lookupTag,

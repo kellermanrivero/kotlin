@@ -261,6 +261,12 @@ public class FirDiagnosticTestGenerated extends AbstractFirDiagnosticTest {
         }
 
         @Test
+        @TestMetadata("implicitTypeWithTypeBound.kt")
+        public void testImplicitTypeWithTypeBound() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/implicitTypeWithTypeBound.kt");
+        }
+
+        @Test
         @TestMetadata("incorrectDataClass.kt")
         public void testIncorrectDataClass() throws Exception {
             runTest("compiler/fir/analysis-tests/testData/resolve/incorrectDataClass.kt");
@@ -4065,6 +4071,22 @@ public class FirDiagnosticTestGenerated extends AbstractFirDiagnosticTest {
             @TestMetadata("visibilityWithOverrides.kt")
             public void testVisibilityWithOverrides() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/visibility/visibilityWithOverrides.kt");
+            }
+        }
+
+        @Nested
+        @TestMetadata("compiler/fir/analysis-tests/testData/resolve/withAllowedKotlinPackage")
+        @TestDataPath("$PROJECT_ROOT")
+        public class WithAllowedKotlinPackage {
+            @Test
+            public void testAllFilesPresentInWithAllowedKotlinPackage() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/withAllowedKotlinPackage"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @Test
+            @TestMetadata("extensionFunctionAddedToStdlib.kt")
+            public void testExtensionFunctionAddedToStdlib() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/withAllowedKotlinPackage/extensionFunctionAddedToStdlib.kt");
             }
         }
     }

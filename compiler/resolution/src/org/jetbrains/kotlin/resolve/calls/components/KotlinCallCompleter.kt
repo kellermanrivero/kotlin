@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.resolve.calls.components
 
 import org.jetbrains.kotlin.builtins.isFunctionTypeOrSubtype
 import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.descriptors.synthetic.SyntheticMemberDescriptor
 import org.jetbrains.kotlin.resolve.calls.components.candidate.ResolutionCandidate
@@ -31,7 +32,8 @@ import org.jetbrains.kotlin.utils.addToStdlib.same
 class KotlinCallCompleter(
     private val postponedArgumentsAnalyzer: PostponedArgumentsAnalyzer,
     private val kotlinConstraintSystemCompleter: KotlinConstraintSystemCompleter,
-    private val trivialConstraintTypeInferenceOracle: TrivialConstraintTypeInferenceOracle
+    private val trivialConstraintTypeInferenceOracle: TrivialConstraintTypeInferenceOracle,
+    private val languageVersionSettings: LanguageVersionSettings
 ) {
 
     fun runCompletion(
@@ -127,6 +129,7 @@ class KotlinCallCompleter(
             ConstraintSystemCompletionMode.FULL,
             diagnosticHolderForLambda,
         )
+        propagateLambdaAnalysisDiagnostics(diagnosticHolderForLambda, firstCandidate)
 
         while (iterator.hasNext()) {
             val (candidate, atom) = iterator.next()
@@ -137,6 +140,7 @@ class KotlinCallCompleter(
                 ConstraintSystemCompletionMode.FULL,
                 diagnosticHolderForLambda
             )
+            propagateLambdaAnalysisDiagnostics(diagnosticHolderForLambda, candidate)
         }
 
         val errorCandidates = mutableSetOf<SimpleResolutionCandidate>()
@@ -152,6 +156,24 @@ class KotlinCallCompleter(
         return when {
             successfulCandidates.isNotEmpty() -> successfulCandidates
             else -> errorCandidates
+        }
+    }
+
+    private fun propagateLambdaAnalysisDiagnostics(
+        diagnosticHolder: KotlinDiagnosticsHolder.SimpleHolder,
+        candidate: SimpleResolutionCandidate
+    ) {
+        val dontLoseDiagnosticsDuringOverloadResolutionByReturnType =
+            languageVersionSettings.supportsFeature(LanguageFeature.DontLoseDiagnosticsDuringOverloadResolutionByReturnType)
+
+        for (diagnostic in diagnosticHolder.getDiagnostics()) {
+            if (diagnostic is TransformableToWarning<*>) {
+                val transformedDiagnostic =
+                    if (dontLoseDiagnosticsDuringOverloadResolutionByReturnType) diagnostic else diagnostic.transformToWarning()
+                if (transformedDiagnostic != null) {
+                    candidate.addDiagnostic(transformedDiagnostic)
+                }
+            }
         }
     }
 
@@ -206,7 +228,7 @@ class KotlinCallCompleter(
 
             CandidateWithDiagnostics(candidate, diagnosticsHolder.getDiagnostics() + candidate.diagnostics)
         }
-        return AllCandidatesResolutionResult(completedCandidates)
+        return AllCandidatesResolutionResult(completedCandidates, resolutionCallbacks.createEmptyConstraintSystem())
     }
 
     private fun ResolutionCandidate.runCompletion(
@@ -328,17 +350,17 @@ class KotlinCallCompleter(
         diagnosticsHolder: KotlinDiagnosticsHolder.SimpleHolder,
         forwardToInferenceSession: Boolean = false
     ): CallResolutionResult {
-        val systemStorage = getSystem().asReadOnlyStorage()
+        val constraintSystem = getSystem()
         val allDiagnostics = diagnosticsHolder.getDiagnostics() + diagnostics
 
         if (isErrorCandidate()) {
-            return ErrorCallResolutionResult(resolvedCall, allDiagnostics, systemStorage)
+            return ErrorCallResolutionResult(resolvedCall, allDiagnostics, constraintSystem)
         }
 
         return if (type == ConstraintSystemCompletionMode.FULL) {
-            CompletedCallResolutionResult(resolvedCall, allDiagnostics, systemStorage)
+            CompletedCallResolutionResult(resolvedCall, allDiagnostics, constraintSystem)
         } else {
-            PartialCallResolutionResult(resolvedCall, allDiagnostics, systemStorage, forwardToInferenceSession)
+            PartialCallResolutionResult(resolvedCall, allDiagnostics, constraintSystem, forwardToInferenceSession)
         }
     }
 }
