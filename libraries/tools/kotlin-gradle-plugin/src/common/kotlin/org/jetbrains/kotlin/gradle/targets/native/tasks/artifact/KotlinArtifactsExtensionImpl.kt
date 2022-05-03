@@ -52,6 +52,7 @@ abstract class KotlinArtifactsExtensionImpl @Inject constructor(project: Project
     val macosArm64 = KonanTarget.MACOS_ARM64
     val linuxArm64 = KonanTarget.LINUX_ARM64
     val linuxArm32Hfp = KonanTarget.LINUX_ARM32_HFP
+    val linuxArm32Sfp = KonanTarget.LINUX_ARM32_SFP
     val linuxMips32 = KonanTarget.LINUX_MIPS32
     val linuxMipsel32 = KonanTarget.LINUX_MIPSEL32
     val wasm32 = KonanTarget.WASM32

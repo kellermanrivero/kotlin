@@ -4,8 +4,8 @@ plugins {
     kotlin("multiplatform")
 }
 
-// Add two additional presets for Raspberry Pi and Linux/ARM64.
-val raspberryPiPresets: List<KotlinNativeTargetPreset> = listOf("linuxArm32Hfp", "linuxArm64").map {
+// Add two additional presets for Raspberry Pi, Linux/ARM32 and Linux/ARM64.
+val raspberryPiPresets: List<KotlinNativeTargetPreset> = listOf("linuxArm32Hfp", "linuxArm32Sfp", "linuxArm64").map {
     kotlin.presets[it] as KotlinNativeTargetPreset
 }
 

@@ -116,6 +116,10 @@ sealed class ClangArgs(
                 "-mfpu=vfp", "-mfloat-abi=hard"
         )
 
+        KonanTarget.LINUX_ARM32_SFP -> listOf(
+                "-mfpu=vfp", "-mfloat-abi=softfp"
+        )
+
         KonanTarget.IOS_ARM32, KonanTarget.WATCHOS_ARM32 -> listOf(
                 // Force generation of ARM instruction set instead of Thumb-2.
                 // It allows LLVM ARM backend to encode bigger offsets in BL instruction,

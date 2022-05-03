@@ -23,6 +23,7 @@ kotlin {
     linuxX64()
     linuxArm64()
     linuxArm32Hfp()
+    linuxArm32Sfp()
 
     val commonMain by sourceSets.getting
     val nativeMain by sourceSets.creating
@@ -34,6 +35,7 @@ kotlin {
     linuxX64Main.dependsOn(nativeMain)
     linuxArm64Main.dependsOn(nativeMain)
     linuxArm32HfpMain.dependsOn(nativeMain)
+    linuxArm32SfpMain.dependsOn(nativeMain)
 
     val commonTest by sourceSets.getting
     val nativeTest by sourceSets.creating

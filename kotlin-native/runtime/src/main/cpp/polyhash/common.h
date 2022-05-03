@@ -8,6 +8,9 @@
 
 #include <array>
 #include <cstdint>
+#ifdef KINDLE
+#include <stddef.h>
+#endif
 #include "polyhash/naive.h"
 #include "../Common.h"
 
