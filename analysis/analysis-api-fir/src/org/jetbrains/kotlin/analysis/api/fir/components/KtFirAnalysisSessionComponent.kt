@@ -39,10 +39,10 @@ import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 internal interface KtFirAnalysisSessionComponent {
     val analysisSession: KtFirAnalysisSession
 
-    val rootModuleSession: FirSession get() = analysisSession.firResolveState.rootModuleSession
+    val rootModuleSession: FirSession get() = analysisSession.firResolveSession.useSiteFirSession
     val typeContext: ConeInferenceContext get() = rootModuleSession.typeContext
     val firSymbolBuilder get() = analysisSession.firSymbolBuilder
-    val firResolveState get() = analysisSession.firResolveState
+    val firResolveSession get() = analysisSession.firResolveSession
 
     fun ConeKotlinType.asKtType() = analysisSession.firSymbolBuilder.typeBuilder.buildKtType(this)
 
@@ -52,10 +52,8 @@ internal interface KtFirAnalysisSessionComponent {
     fun ConeDiagnostic.asKtDiagnostic(
         source: KtSourceElement,
         qualifiedAccessSource: KtSourceElement?,
-        diagnosticCache: MutableList<KtDiagnostic>
     ): KtDiagnosticWithPsi<*>? {
-        val firDiagnostic = toFirDiagnostics(analysisSession.rootModuleSession, source, qualifiedAccessSource).firstOrNull() ?: return null
-        diagnosticCache += firDiagnostic
+        val firDiagnostic = toFirDiagnostics(analysisSession.useSiteSession, source, qualifiedAccessSource).firstOrNull() ?: return null
         check(firDiagnostic is KtPsiDiagnostic)
         return firDiagnostic.asKtDiagnostic()
     }
@@ -76,7 +74,7 @@ internal interface KtFirAnalysisSessionComponent {
 
     fun createTypeCheckerContext(): TypeCheckerState {
         // TODO use correct session here,
-        return analysisSession.firResolveState.rootModuleSession.typeContext.newTypeCheckerState(
+        return analysisSession.firResolveSession.useSiteFirSession.typeContext.newTypeCheckerState(
             errorTypesEqualToAnything = true,
             stubTypesEqualToAnything = true
         )

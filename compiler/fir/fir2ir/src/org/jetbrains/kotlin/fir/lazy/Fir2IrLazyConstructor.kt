@@ -35,10 +35,11 @@ class Fir2IrLazyConstructor(
     override var origin: IrDeclarationOrigin,
     override val fir: FirConstructor,
     override val symbol: Fir2IrConstructorSymbol,
-) : IrConstructor(), AbstractFir2IrLazyDeclaration<FirConstructor, IrConstructor>, Fir2IrComponents by components {
+) : IrConstructor(), AbstractFir2IrLazyDeclaration<FirConstructor>, Fir2IrTypeParametersContainer,
+    Fir2IrComponents by components {
     init {
         symbol.bind(this)
-        classifierStorage.preCacheTypeParameters(fir)
+        classifierStorage.preCacheTypeParameters(fir, symbol)
     }
 
     override var annotations: List<IrConstructorCall> by createLazyAnnotations()
@@ -85,7 +86,6 @@ class Fir2IrLazyConstructor(
         if (containingClass?.isInner == true && outerClass != null) {
             declarationStorage.enterScope(this)
             declareThisReceiverParameter(
-                symbolTable,
                 thisType = outerClass.thisReceiver!!.type,
                 thisOrigin = origin
             ).apply {
@@ -94,11 +94,7 @@ class Fir2IrLazyConstructor(
         } else null
     }
 
-    override var extensionReceiverParameter: IrValueParameter?
-        get() = null
-        set(_) {
-            error("Mutating Fir2Ir lazy elements is not possible")
-        }
+    override var extensionReceiverParameter: IrValueParameter? = null
 
     override var contextReceiverParametersCount: Int = fir.contextReceivers.size
 

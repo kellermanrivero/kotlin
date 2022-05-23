@@ -26,10 +26,7 @@ import org.jetbrains.kotlin.ir.builders.declarations.UNDEFINED_PARAMETER_INDEX
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrEnumConstructorCallImpl
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrEnumEntrySymbol
-import org.jetbrains.kotlin.ir.symbols.IrTypeAliasSymbol
-import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
+import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.*
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
@@ -89,22 +86,21 @@ class Fir2IrClassifierStorage(
             IrSimpleTypeImpl(getIrTypeParameterSymbol(it.symbol, ConversionTypeContext.DEFAULT), false, emptyList(), emptyList())
         }
         thisReceiver = declareThisReceiverParameter(
-            symbolTable,
             thisType = IrSimpleTypeImpl(symbol, false, typeArguments, emptyList()),
             thisOrigin = IrDeclarationOrigin.INSTANCE_RECEIVER
         )
         symbolTable.leaveScope(this)
     }
 
-    internal fun preCacheTypeParameters(owner: FirTypeParameterRefsOwner) {
+    internal fun preCacheTypeParameters(owner: FirTypeParameterRefsOwner, irOwnerSymbol: IrSymbol) {
         for ((index, typeParameter) in owner.typeParameters.withIndex()) {
             val original = typeParameter.symbol.fir
-            getCachedIrTypeParameter(original, index)
-                ?: createIrTypeParameterWithoutBounds(original, index)
+            getCachedIrTypeParameter(original)
+                ?: createIrTypeParameterWithoutBounds(original, index, irOwnerSymbol)
             if (owner is FirProperty && owner.isVar) {
                 val context = ConversionTypeContext.DEFAULT.inSetter()
-                getCachedIrTypeParameter(original, index, context)
-                    ?: createIrTypeParameterWithoutBounds(original, index, context)
+                getCachedIrTypeParameter(original, context)
+                    ?: createIrTypeParameterWithoutBounds(original, index, irOwnerSymbol, context)
             }
         }
     }
@@ -115,10 +111,10 @@ class Fir2IrClassifierStorage(
     ) {
         typeParameters = owner.typeParameters.mapIndexedNotNull { index, typeParameter ->
             if (typeParameter !is FirTypeParameter) return@mapIndexedNotNull null
-            getIrTypeParameter(typeParameter, index, typeContext).apply {
+            getIrTypeParameter(typeParameter, index, symbol, typeContext).apply {
                 parent = this@setTypeParameters
                 if (superTypes.isEmpty()) {
-                    superTypes = typeParameter.bounds.map { it.toIrType() }
+                    superTypes = typeParameter.bounds.map { it.toIrType(typeContext) }
                 }
             }
         }
@@ -126,7 +122,7 @@ class Fir2IrClassifierStorage(
 
     private fun IrClass.declareTypeParameters(klass: FirClass) {
         if (klass is FirRegularClass) {
-            preCacheTypeParameters(klass)
+            preCacheTypeParameters(klass, symbol)
             setTypeParameters(klass)
             val fieldsForContextReceiversOfCurrentClass = createContextReceiverFields(klass)
             if (fieldsForContextReceiversOfCurrentClass.isNotEmpty()) {
@@ -263,9 +259,9 @@ class Fir2IrClassifierStorage(
         parent: IrFile
     ): IrTypeAlias {
         val signature = signatureComposer.composeSignature(typeAlias)
-        preCacheTypeParameters(typeAlias)
         return typeAlias.convertWithOffsets { startOffset, endOffset ->
             declareIrTypeAlias(signature) { symbol ->
+                preCacheTypeParameters(typeAlias, symbol)
                 val irTypeAlias = irFactory.createTypeAlias(
                     startOffset, endOffset, symbol,
                     typeAlias.name, components.visibilityConverter.convertToDescriptorVisibility(typeAlias.visibility),
@@ -375,13 +371,43 @@ class Fir2IrClassifierStorage(
     private fun createIrTypeParameterWithoutBounds(
         typeParameter: FirTypeParameter,
         index: Int,
-        typeContext: ConversionTypeContext = ConversionTypeContext.DEFAULT
+        ownerSymbol: IrSymbol,
+        typeContext: ConversionTypeContext = ConversionTypeContext.DEFAULT,
     ): IrTypeParameter {
         require(index >= 0)
         val origin = typeParameter.computeIrOrigin()
         val irTypeParameter = with(typeParameter) {
             convertWithOffsets { startOffset, endOffset ->
-                irFactory.createTypeParameter(
+                signatureComposer.composeTypeParameterSignature(
+                    typeParameter, index, ownerSymbol.signature
+                )?.let { signature ->
+                    if (ownerSymbol is IrClassifierSymbol) {
+                        symbolTable.declareGlobalTypeParameter(
+                            signature,
+                            symbolFactory = { IrTypeParameterPublicSymbolImpl(signature) }
+                        ) { symbol ->
+                            irFactory.createTypeParameter(
+                                startOffset, endOffset, origin, symbol,
+                                name, if (index < 0) 0 else index,
+                                isReified,
+                                variance
+                            )
+                        }
+                    } else {
+                        symbolTable.declareScopedTypeParameter(
+                            signature,
+                            symbolFactory = { IrTypeParameterPublicSymbolImpl(signature) }
+                        ) { symbol ->
+                            irFactory.createTypeParameter(
+                                startOffset, endOffset, origin, symbol,
+                                name, if (index < 0) 0 else index,
+                                isReified,
+                                variance
+                            )
+                        }
+
+                    }
+                } ?: irFactory.createTypeParameter(
                     startOffset, endOffset, origin, IrTypeParameterSymbolImpl(),
                     name, if (index < 0) 0 else index,
                     isReified,
@@ -402,37 +428,23 @@ class Fir2IrClassifierStorage(
 
     internal fun getCachedIrTypeParameter(
         typeParameter: FirTypeParameter,
-        index: Int = UNDEFINED_PARAMETER_INDEX,
         typeContext: ConversionTypeContext = ConversionTypeContext.DEFAULT
     ): IrTypeParameter? {
-        // Here transformation is a bit difficult because one FIR property type parameter
-        // can be transformed to two different type parameters: one for getter and another one for setter
-        val simpleCachedParameter = typeParameterCache[typeParameter]
-        if (simpleCachedParameter != null) {
-            if (typeContext.origin != ConversionTypeOrigin.SETTER) {
-                return simpleCachedParameter
-            }
-            if (index < 0) {
-                val parent = simpleCachedParameter.parent
-                if (parent !is IrSimpleFunction || parent.returnType == irBuiltIns.unitType) {
-                    return simpleCachedParameter
-                }
-            }
-        }
-        if (typeContext.origin == ConversionTypeOrigin.SETTER) {
-            typeParameterCacheForSetter[typeParameter]?.let { return it }
-        }
-        return null
+        return if (typeContext.origin == ConversionTypeOrigin.SETTER)
+            typeParameterCacheForSetter[typeParameter]
+        else
+            typeParameterCache[typeParameter]
     }
 
     internal fun getIrTypeParameter(
         typeParameter: FirTypeParameter,
         index: Int,
+        ownerSymbol: IrSymbol,
         typeContext: ConversionTypeContext = ConversionTypeContext.DEFAULT
     ): IrTypeParameter {
-        getCachedIrTypeParameter(typeParameter, index, typeContext)?.let { return it }
+        getCachedIrTypeParameter(typeParameter, typeContext)?.let { return it }
         return typeParameter.run {
-            val irTypeParameter = createIrTypeParameterWithoutBounds(typeParameter, index, typeContext)
+            val irTypeParameter = createIrTypeParameterWithoutBounds(typeParameter, index, ownerSymbol, typeContext)
             irTypeParameter.superTypes = bounds.map { it.toIrType() }
             irTypeParameter
         }
@@ -453,10 +465,11 @@ class Fir2IrClassifierStorage(
     fun createIrEnumEntry(
         enumEntry: FirEnumEntry,
         irParent: IrClass?,
-        predefinedOrigin: IrDeclarationOrigin? = null
+        predefinedOrigin: IrDeclarationOrigin? = null,
+        forceTopLevelPrivate: Boolean = false,
     ): IrEnumEntry {
         return enumEntry.convertWithOffsets { startOffset, endOffset ->
-            val signature = signatureComposer.composeSignature(enumEntry)
+            val signature = signatureComposer.composeSignature(enumEntry, forceTopLevelPrivate = forceTopLevelPrivate)
             val result = declareIrEnumEntry(signature) { symbol ->
                 val origin = enumEntry.computeIrOrigin(predefinedOrigin)
                 irFactory.createEnumEntry(
@@ -494,29 +507,33 @@ class Fir2IrClassifierStorage(
         }
     }
 
-    fun getIrClassSymbol(firClassSymbol: FirClassSymbol<*>): IrClassSymbol {
+    fun getIrClassSymbol(firClassSymbol: FirClassSymbol<*>, forceTopLevelPrivate: Boolean = false): IrClassSymbol {
         val firClass = firClassSymbol.fir
         getCachedIrClass(firClass)?.let { return it.symbol }
         if (firClass is FirAnonymousObject || firClass is FirRegularClass && firClass.visibility == Visibilities.Local) {
             return createLocalIrClassOnTheFly(firClass).symbol
         }
-        val signature = signatureComposer.composeSignature(firClass)!!
-        symbolTable.referenceClassIfAny(signature)?.let { irClassSymbol ->
-            val irClass = irClassSymbol.owner
+        val signature = signatureComposer.composeSignature(firClass, forceTopLevelPrivate = forceTopLevelPrivate)!!
+        val symbol = symbolTable.referenceClass(signature)
+        if (symbol.isBound) {
+            val irClass = symbol.owner
             classCache[firClass as FirRegularClass] = irClass
             val mappedTypeParameters = firClass.typeParameters.filterIsInstance<FirTypeParameter>().zip(irClass.typeParameters)
             for ((firTypeParameter, irTypeParameter) in mappedTypeParameters) {
                 typeParameterCache[firTypeParameter] = irTypeParameter
             }
             declarationStorage.preCacheBuiltinClassMembers(firClass, irClass)
-            return irClassSymbol
+            return symbol
         }
         firClass as FirRegularClass
         val classId = firClassSymbol.classId
         val parentId = classId.outerClassId
         val parentClass = parentId?.let { session.symbolProvider.getClassLikeSymbolByClassId(it) }
         val irParent = declarationStorage.findIrParent(classId.packageFqName, parentClass?.toLookupTag(), firClassSymbol, firClass.origin)!!
-        val symbol = Fir2IrClassSymbol(signature)
+
+        // firClass may be referenced by some parent's type parameters as a bound. In that case, getIrClassSymbol will be called recursively.
+        getCachedIrClass(firClass)?.let { return it.symbol }
+
         val irClass = firClass.convertWithOffsets { startOffset, endOffset ->
             symbolTable.declareClass(signature, { symbol }) {
                 Fir2IrLazyClass(components, startOffset, endOffset, firClass.irOrigin(firProvider), firClass, symbol).apply {
@@ -559,7 +576,7 @@ class Fir2IrClassifierStorage(
         typeContext: ConversionTypeContext
     ): IrTypeParameterSymbol {
         val firTypeParameter = firTypeParameterSymbol.fir
-        return getCachedIrTypeParameter(firTypeParameter, typeContext = typeContext)?.symbol
+        return getCachedIrTypeParameter(firTypeParameter, typeContext)?.symbol
         // We can try to use default cache because setter can use parent type parameters
             ?: typeParameterCache[firTypeParameter]?.symbol
             ?: error("Cannot find cached type parameter by FIR symbol: ${firTypeParameterSymbol.name}")

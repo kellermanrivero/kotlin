@@ -90,7 +90,7 @@ class JavaOverrideChecker internal constructor(
 
     // In most cases checking erasure of value parameters should be enough, but in some cases there might be semi-valid Java hierarchies
     // with same value parameters, but different return type kinds, so it's worth distinguishing them as different non-overridable members
-    private fun doesReturnTypesHaveSameKind(
+    fun doesReturnTypesHaveSameKind(
         candidate: FirSimpleFunction,
         base: FirSimpleFunction,
     ): Boolean {
@@ -153,12 +153,16 @@ class JavaOverrideChecker internal constructor(
     }
 
     private fun FirTypeRef?.isTypeParameterDependent(): Boolean =
-        this is FirResolvedTypeRef && type.lowerBoundIfFlexible().isTypeParameterDependent()
+        this is FirResolvedTypeRef && type.isTypeParameterDependent()
 
-    private fun ConeKotlinType.isTypeParameterDependent(): Boolean =
-        this is ConeTypeParameterType || this is ConeClassLikeType && typeArguments.any { argument ->
+    private fun ConeKotlinType.isTypeParameterDependent(): Boolean {
+        if (this is ConeFlexibleType) return lowerBound.isTypeParameterDependent()
+        if (this is ConeDefinitelyNotNullType) return original.isTypeParameterDependent()
+
+        return this is ConeTypeParameterType || this is ConeClassLikeType && typeArguments.any { argument ->
             argument is ConeKotlinTypeProjection && argument.type.isTypeParameterDependent()
         }
+    }
 
     private fun FirCallableDeclaration.isTypeParameterDependent(): Boolean =
         typeParameters.isNotEmpty() || returnTypeRef.isTypeParameterDependent() ||
@@ -167,12 +171,14 @@ class JavaOverrideChecker internal constructor(
 
     private fun FirTypeRef.extractTypeParametersTo(result: MutableCollection<FirTypeParameterRef>) {
         if (this is FirResolvedTypeRef) {
-            type.lowerBoundIfFlexible().extractTypeParametersTo(result)
+            type.extractTypeParametersTo(result)
         }
     }
 
     private fun ConeKotlinType.extractTypeParametersTo(result: MutableCollection<FirTypeParameterRef>) {
         when (this) {
+            is ConeFlexibleType -> lowerBound.extractTypeParametersTo(result)
+            is ConeDefinitelyNotNullType -> original.extractTypeParametersTo(result)
             is ConeTypeParameterType -> {
                 result += lookupTag.typeParameterSymbol.fir
             }

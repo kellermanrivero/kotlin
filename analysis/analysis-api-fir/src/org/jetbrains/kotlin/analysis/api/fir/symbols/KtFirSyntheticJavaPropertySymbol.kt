@@ -14,10 +14,10 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.pointers.KtFirJavaSynthetic
 import org.jetbrains.kotlin.analysis.api.fir.utils.cached
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirModuleResolveState
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.containingClass
@@ -33,8 +33,8 @@ import org.jetbrains.kotlin.name.Name
 
 internal class KtFirSyntheticJavaPropertySymbol(
     override val firSymbol: FirSyntheticPropertySymbol,
-    override val resolveState: LLFirModuleResolveState,
-    override val token: ValidityToken,
+    override val firResolveSession: LLFirResolveSession,
+    override val token: KtLifetimeToken,
     private val builder: KtSymbolByFirBuilder
 ) : KtSyntheticJavaPropertySymbol(), KtFirSymbol<FirSyntheticPropertySymbol> {
     override val psi: PsiElement? by cached { firSymbol.findPsi() }
@@ -56,7 +56,7 @@ internal class KtFirSyntheticJavaPropertySymbol(
     override val modality: Modality get() = withValidityAssertion { firSymbol.modality ?: firSymbol.invalidModalityError() }
     override val visibility: Visibility get() = withValidityAssertion { firSymbol.visibility }
 
-    override val annotationsList by cached { KtFirAnnotationListForDeclaration.create(firSymbol, resolveState.rootModuleSession, token) }
+    override val annotationsList by cached { KtFirAnnotationListForDeclaration.create(firSymbol, firResolveSession.useSiteFirSession, token) }
 
     override val callableIdIfNonLocal: CallableId? get() = withValidityAssertion { firSymbol.getCallableIdIfNonLocal() }
 

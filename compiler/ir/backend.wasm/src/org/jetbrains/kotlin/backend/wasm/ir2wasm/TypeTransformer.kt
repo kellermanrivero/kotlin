@@ -44,8 +44,8 @@ class WasmTypeTransformer(
                 toWasmValueType()
         }
 
-    fun IrType.toWasmGcRefType(): WasmType =
-        WasmRefNullType(WasmHeapType.Type(context.referenceGcType(getRuntimeClass?.symbol ?: builtIns.anyClass)))
+    private fun IrType.toWasmGcRefType(): WasmType =
+        WasmRefNullType(WasmHeapType.Type(context.referenceGcType(getRuntimeClass(context.backendContext.irBuiltIns).symbol)))
 
     fun IrType.toBoxedInlineClassType(): WasmType =
         toWasmGcRefType()
@@ -82,11 +82,11 @@ class WasmTypeTransformer(
                 WasmF64
 
             builtIns.nothingNType ->
-                WasmExternRef
+                WasmAnyRef
 
             // Value will not be created. Just using a random Wasm type.
             builtIns.nothingType ->
-                WasmExternRef
+                WasmAnyRef
 
             symbols.voidType ->
                 error("Void type can't be used as a value")
@@ -122,8 +122,5 @@ fun isBuiltInWasmRefType(type: IrType): Boolean {
 fun isExternalType(type: IrType): Boolean =
     type.erasedUpperBound?.isExternal ?: false
 
-val IrType.getRuntimeClass: IrClass?
-    get() = erasedUpperBound.let {
-        if (it?.isInterface == true) null
-        else it
-    }
+fun IrType.getRuntimeClass(irBuiltIns: IrBuiltIns): IrClass =
+    erasedUpperBound?.takeIf { !it.isInterface } ?: irBuiltIns.anyClass.owner

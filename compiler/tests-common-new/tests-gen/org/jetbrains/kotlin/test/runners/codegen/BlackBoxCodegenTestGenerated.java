@@ -3034,6 +3034,12 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         }
 
         @Test
+        @TestMetadata("kt51844.kt")
+        public void testKt51844() throws Exception {
+            runTest("compiler/testData/codegen/box/callableReference/kt51844.kt");
+        }
+
+        @Test
         @TestMetadata("nested.kt")
         public void testNested() throws Exception {
             runTest("compiler/testData/codegen/box/callableReference/nested.kt");
@@ -7062,6 +7068,12 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         }
 
         @Test
+        @TestMetadata("genericSetter.kt")
+        public void testGenericSetter() throws Exception {
+            runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/genericSetter.kt");
+        }
+
+        @Test
         @TestMetadata("importCompanion.kt")
         public void testImportCompanion() throws Exception {
             runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/importCompanion.kt");
@@ -7236,6 +7248,12 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         }
 
         @Test
+        @TestMetadata("nestedClassAsBound.kt")
+        public void testNestedClassAsBound() throws Exception {
+            runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/nestedClassAsBound.kt");
+        }
+
+        @Test
         @TestMetadata("nestedClassInAnnotationArgument.kt")
         public void testNestedClassInAnnotationArgument() throws Exception {
             runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/nestedClassInAnnotationArgument.kt");
@@ -7281,6 +7299,12 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         @TestMetadata("platformTypes.kt")
         public void testPlatformTypes() throws Exception {
             runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/platformTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("privateSuperType.kt")
+        public void testPrivateSuperType() throws Exception {
+            runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/privateSuperType.kt");
         }
 
         @Test
@@ -10084,6 +10108,18 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         }
 
         @Test
+        @TestMetadata("kt52311_nullOnLeft.kt")
+        public void testKt52311_nullOnLeft() throws Exception {
+            runTest("compiler/testData/codegen/box/coroutines/kt52311_nullOnLeft.kt");
+        }
+
+        @Test
+        @TestMetadata("kt52311_nullOnRight.kt")
+        public void testKt52311_nullOnRight() throws Exception {
+            runTest("compiler/testData/codegen/box/coroutines/kt52311_nullOnRight.kt");
+        }
+
+        @Test
         @TestMetadata("lastExpressionIsLoop.kt")
         public void testLastExpressionIsLoop() throws Exception {
             runTest("compiler/testData/codegen/box/coroutines/lastExpressionIsLoop.kt");
@@ -10360,6 +10396,12 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         }
 
         @Test
+        @TestMetadata("suspendInlineReference.kt")
+        public void testSuspendInlineReference() throws Exception {
+            runTest("compiler/testData/codegen/box/coroutines/suspendInlineReference.kt");
+        }
+
+        @Test
         @TestMetadata("suspendJavaOverrides.kt")
         public void testSuspendJavaOverrides() throws Exception {
             runTest("compiler/testData/codegen/box/coroutines/suspendJavaOverrides.kt");
@@ -10480,6 +10522,18 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
             @TestMetadata("lambdaWithMultipleParameters.kt")
             public void testLambdaWithMultipleParameters() throws Exception {
                 runTest("compiler/testData/codegen/box/coroutines/bridges/lambdaWithMultipleParameters.kt");
+            }
+
+            @Test
+            @TestMetadata("mapSuspendAbstractClear.kt")
+            public void testMapSuspendAbstractClear() throws Exception {
+                runTest("compiler/testData/codegen/box/coroutines/bridges/mapSuspendAbstractClear.kt");
+            }
+
+            @Test
+            @TestMetadata("mapSuspendClear.kt")
+            public void testMapSuspendClear() throws Exception {
+                runTest("compiler/testData/codegen/box/coroutines/bridges/mapSuspendClear.kt");
             }
         }
 
@@ -19037,15 +19091,15 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
             }
 
             @Test
-            @TestMetadata("kt49285.kt")
-            public void testKt49285() throws Exception {
-                runTest("compiler/testData/codegen/box/inference/builderInference/kt49285.kt");
-            }
-
-            @Test
             @TestMetadata("kt49887.kt")
             public void testKt49887() throws Exception {
                 runTest("compiler/testData/codegen/box/inference/builderInference/kt49887.kt");
+            }
+
+            @Test
+            @TestMetadata("kt51988.kt")
+            public void testKt51988() throws Exception {
+                runTest("compiler/testData/codegen/box/inference/builderInference/kt51988.kt");
             }
 
             @Test
@@ -20963,6 +21017,12 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         @TestMetadata("kt51672.kt")
         public void testKt51672() throws Exception {
             runTest("compiler/testData/codegen/box/inlineClasses/kt51672.kt");
+        }
+
+        @Test
+        @TestMetadata("kt52394.kt")
+        public void testKt52394() throws Exception {
+            runTest("compiler/testData/codegen/box/inlineClasses/kt52394.kt");
         }
 
         @Test
@@ -25163,6 +25223,18 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         @TestMetadata("kt12125_inc_2.kt")
         public void testKt12125_inc_2() throws Exception {
             runTest("compiler/testData/codegen/box/intrinsics/kt12125_inc_2.kt");
+        }
+
+        @Test
+        @TestMetadata("kt52163_boolean.kt")
+        public void testKt52163_boolean() throws Exception {
+            runTest("compiler/testData/codegen/box/intrinsics/kt52163_boolean.kt");
+        }
+
+        @Test
+        @TestMetadata("kt52163_doubleCompareToInt.kt")
+        public void testKt52163_doubleCompareToInt() throws Exception {
+            runTest("compiler/testData/codegen/box/intrinsics/kt52163_doubleCompareToInt.kt");
         }
 
         @Test
@@ -44025,6 +44097,18 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
         @TestMetadata("kt49226.kt")
         public void testKt49226() throws Exception {
             runTest("compiler/testData/codegen/box/sam/kt49226.kt");
+        }
+
+        @Test
+        @TestMetadata("kt50108.kt")
+        public void testKt50108() throws Exception {
+            runTest("compiler/testData/codegen/box/sam/kt50108.kt");
+        }
+
+        @Test
+        @TestMetadata("kt50108_java.kt")
+        public void testKt50108_java() throws Exception {
+            runTest("compiler/testData/codegen/box/sam/kt50108_java.kt");
         }
 
         @Test

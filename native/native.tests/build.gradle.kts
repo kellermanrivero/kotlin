@@ -1,3 +1,4 @@
+import org.gradle.internal.util.NumberUtil.formatBytes
 import org.jetbrains.kotlin.ideaExt.idea
 
 plugins {
@@ -49,6 +50,8 @@ enum class TestProperty(shortName: String) {
     COMPILER_CLASSPATH("compilerClasspath"),
     TEST_TARGET("target"),
     TEST_MODE("mode"),
+    FORCE_STANDALONE("forceStandalone"),
+    COMPILE_ONLY("compileOnly"),
     OPTIMIZATION_MODE("optimizationMode"),
     MEMORY_MODEL("memoryModel"),
     USE_THREAD_STATE_CHECKER("useThreadStateChecker"),
@@ -115,6 +118,8 @@ fun nativeTest(taskName: String, vararg tags: String) = projectTest(taskName, jU
         // Pass Gradle properties as JVM properties so test process can read them.
         TestProperty.TEST_TARGET.setUpFromGradleProperty(this)
         TestProperty.TEST_MODE.setUpFromGradleProperty(this)
+        TestProperty.FORCE_STANDALONE.setUpFromGradleProperty(this)
+        TestProperty.COMPILE_ONLY.setUpFromGradleProperty(this)
         TestProperty.OPTIMIZATION_MODE.setUpFromGradleProperty(this)
         TestProperty.MEMORY_MODEL.setUpFromGradleProperty(this)
         TestProperty.USE_THREAD_STATE_CHECKER.setUpFromGradleProperty(this)
@@ -127,15 +132,32 @@ fun nativeTest(taskName: String, vararg tags: String) = projectTest(taskName, jU
             includeTags(*tags)
         }
 
-        logger.info(
-            buildString {
-                appendLine("$path parallel test execution parameters:")
-                append("  Available CPU cores = $availableCpuCores")
-                systemProperties.filterKeys { it.startsWith("junit.jupiter") }.toSortedMap().forEach { (key, value) ->
-                    append("\n  $key = $value")
-                }
+        fun formatExecutionParameters() = buildString {
+            appendLine("$path parallel test execution parameters:")
+            append("  Available CPU cores = $availableCpuCores")
+            systemProperties.filterKeys { it.startsWith("junit.jupiter") }.toSortedMap().forEach { (key, value) ->
+                append("\n  $key = $value")
             }
-        )
+        }
+
+        fun formatMemoryUsage(before: Boolean) = buildString {
+            with(Runtime.getRuntime()) {
+                appendLine("$path (${if (before) "before" else "after"}) memory info:")
+                appendLine("  Max memory (-Xmx) = ${formatBytes(maxMemory())}")
+                appendLine("  Allocated memory = ${formatBytes(totalMemory())}")
+                appendLine("    Used memory = ${formatBytes(totalMemory() - freeMemory())}")
+                append("    Free memory = ${formatBytes(freeMemory())}")
+            }
+        }
+
+        doFirst {
+            logger.info(formatExecutionParameters())
+            logger.info(formatMemoryUsage(before = true))
+        }
+
+        doLast {
+            logger.info(formatMemoryUsage(before = false))
+        }
     } else
         doFirst {
             throw GradleException(

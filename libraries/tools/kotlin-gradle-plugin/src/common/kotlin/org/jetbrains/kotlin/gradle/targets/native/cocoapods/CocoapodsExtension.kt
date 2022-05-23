@@ -15,9 +15,11 @@ import org.gradle.api.tasks.*
 import org.gradle.util.ConfigureUtil
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.CocoapodsExtension.CocoapodsDependency.PodLocation.*
-import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBinary
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
+import org.jetbrains.kotlin.gradle.tasks.addArg
+import org.jetbrains.kotlin.gradle.tasks.addArgs
 import org.jetbrains.kotlin.konan.target.HostManager
 import java.io.File
 import java.net.URI
@@ -152,7 +154,7 @@ open class CocoapodsExtension(private val project: Project) {
      * Add a CocoaPods dependency to the pod built from this project.
      */
     @JvmOverloads
-    fun pod(name: String, version: String? = null, path: File? = null, moduleName: String = name.asModuleName()) {
+    fun pod(name: String, version: String? = null, path: File? = null, moduleName: String = name.asModuleName(), headers: String? = null) {
         // Empty string will lead to an attempt to create two podDownload tasks.
         // One is original podDownload and second is podDownload + pod.name
         require(name.isNotEmpty()) { "Please provide not empty pod name to avoid ambiguity" }
@@ -181,7 +183,7 @@ open class CocoapodsExtension(private val project: Project) {
             project.logger.warn(warnMessage)
             podSource = path.parentFile
         }
-        addToPods(CocoapodsDependency(name, moduleName, version, podSource?.let { Path(it) }))
+        addToPods(CocoapodsDependency(name, moduleName, headers, version, podSource?.let { Path(it) }))
     }
 
 
@@ -243,10 +245,7 @@ open class CocoapodsExtension(private val project: Project) {
 
     internal fun configureLinkingOptions(binary: NativeBinary, setRPath: Boolean = false) {
         pods.all { pod ->
-            binary.linkerOpts("-framework", pod.moduleName)
-
             binary.linkTaskProvider.configure { task ->
-
                 if (HostManager.hostIsMac) {
                     val podBuildTaskProvider = project.getPodBuildTaskProvider(binary.target, pod)
                     task.inputs.file(podBuildTaskProvider.map { it.buildSettingsFile })
@@ -255,10 +254,15 @@ open class CocoapodsExtension(private val project: Project) {
 
                 task.doFirst { _ ->
                     val podBuildSettings = project.getPodBuildSettingsProperties(binary.target, pod)
-                    binary.linkerOpts.addAll(podBuildSettings.frameworkSearchPaths.map { "-F$it" })
-                    if (setRPath) {
-                        binary.linkerOpts.addAll(podBuildSettings.frameworkSearchPaths.flatMap { listOf("-rpath", it) })
-                    }
+                    val frameworkFileName = pod.moduleName + ".framework"
+                    val frameworkSearchPaths = podBuildSettings.frameworkSearchPaths
+
+                    val frameworkFileExists = frameworkSearchPaths.any { dir -> File(dir, frameworkFileName).exists() }
+                    if (frameworkFileExists) binary.linkerOpts.addArg("-framework", pod.moduleName)
+
+                    binary.linkerOpts.addAll(frameworkSearchPaths.map { "-F$it" })
+
+                    if (setRPath) binary.linkerOpts.addArgs("-rpath", frameworkSearchPaths)
                 }
             }
         }
@@ -267,6 +271,7 @@ open class CocoapodsExtension(private val project: Project) {
     data class CocoapodsDependency(
         private val name: String,
         @get:Input var moduleName: String,
+        @get:Optional @get:Input var headers: String? = null,
         @get:Optional @get:Input var version: String? = null,
         @get:Optional @get:Nested var source: PodLocation? = null,
         @get:Internal var extraOpts: List<String> = listOf(),

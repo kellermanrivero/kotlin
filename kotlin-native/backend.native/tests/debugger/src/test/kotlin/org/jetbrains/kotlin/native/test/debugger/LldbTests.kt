@@ -5,6 +5,7 @@
 
 import org.jetbrains.kotlin.native.test.debugger.lldbCommandRunOrContinue
 import org.jetbrains.kotlin.native.test.debugger.lldbComplexTest
+import org.jetbrains.kotlin.native.test.debugger.lldbCheckLineNumbers
 import org.jetbrains.kotlin.native.test.debugger.lldbTest
 import org.junit.Test
 
@@ -178,10 +179,10 @@ class LldbTests {
         val application = swiftc("application", swiftSrc, "-F", root.toString())
         """
             > b kfun:#b(){}kotlin.String
-            Breakpoint 1: where = [..]`kfun:#b(){}kotlin.String [..] at b.kt:1:12, [..]
+            Breakpoint 1: where = [..]`kfun:#b(){}kotlin.String [..] at b.kt:1:1, [..]
 
             > b kfun:#a(){}kotlin.String
-            Breakpoint 2: where = [..]`kfun:#a(){}kotlin.String [..] at a.kt:1:12, [..]
+            Breakpoint 2: where = [..]`kfun:#a(){}kotlin.String [..] at a.kt:1:1, [..]
             > q
         """.trimIndent().lldb(application)
     }
@@ -342,7 +343,7 @@ class LldbTests {
                v()
             }
         """.feedOutput("kt42208-3.kt")
-        val binary = arrayOf(kt42208One, kt42208Two, kt42208Three).binary("kt42208", "-g", "-XXLanguage:+UnitConversion")
+        val binary = arrayOf(kt42208One, kt42208Two, kt42208Three).binary("kt42208", "-g", "-XXLanguage:+UnitConversionsOnArbitraryExpressions")
         """
             > b kt42208-2.kt:5
             > ${lldbCommandRunOrContinue()}
@@ -402,4 +403,38 @@ class LldbTests {
             > q
         """.trimIndent().lldb(binary)
     }
+
+    @Test
+    fun `lldb line numbers are valid in source`() {
+        // Whitespace is important, since the character offsets are what defines source lines
+        lldbCheckLineNumbers(mapOf(
+                "main.kt" to """
+    
+    fun main() {
+    
+        inliner {
+        
+            println("1")
+            
+        }
+        
+        inliner {
+            
+            println("2")
+            
+        }
+    
+    }
+    
+""", "inliner.kt" to """
+    ${" ".repeat(1000)}
+    inline fun inliner(block: ()->Unit) {
+    
+        block()
+    
+    }
+    
+"""), "main.kt:2", 15)
+    }
+
 }

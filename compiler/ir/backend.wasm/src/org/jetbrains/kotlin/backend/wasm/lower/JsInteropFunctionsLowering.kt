@@ -7,8 +7,7 @@ package org.jetbrains.kotlin.backend.wasm.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
-import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
-import org.jetbrains.kotlin.backend.common.ir.createStaticFunctionWithReceivers
+import org.jetbrains.kotlin.backend.common.ir.addDispatchReceiver
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
@@ -581,7 +580,7 @@ class JsInteropFunctionsLowering(val context: WasmBackendContext) : DeclarationT
     ) : InteropTypeAdapter {
         override val fromType: IrType = context.wasmSymbols.wasmDataRefType
         override fun adapt(expression: IrExpression, builder: IrBuilderWithScope): IrExpression {
-            val call = builder.irCall(context.wasmSymbols.wasmRefCast)
+            val call = builder.irCall(context.wasmSymbols.refCast)
             call.putValueArgument(0, expression)
             call.putTypeArgument(0, toType)
             return call

@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.ir.backend.js.export
 
 import org.jetbrains.kotlin.backend.common.ir.isExpect
-import org.jetbrains.kotlin.backend.common.ir.isMethodOfAny
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -356,7 +355,7 @@ class ExportModelGenerator(
         val exportedClass = ExportedClass(
             name = name,
             isInterface = klass.isInterface,
-            isAbstract = klass.modality == Modality.ABSTRACT,
+            isAbstract = klass.modality == Modality.ABSTRACT || klass.modality == Modality.SEALED,
             superClass = superType,
             superInterfaces = superInterfaces,
             typeParameters = typeParameters,

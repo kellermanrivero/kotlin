@@ -193,7 +193,7 @@ class BuilderInferenceSession(
     fun hasInapplicableCall(): Boolean = hasInapplicableCall
 
     override fun writeOnlyStubs(callInfo: SingleCallResolutionResult): Boolean {
-        return !skipCall(callInfo)
+        return !skipCall(callInfo) && !arePostponedVariablesInferred()
     }
 
     private fun skipCall(callInfo: SingleCallResolutionResult): Boolean {
@@ -227,28 +227,31 @@ class BuilderInferenceSession(
     fun getCurrentSubstitutor(): NewTypeSubstitutor =
         commonSystem.buildCurrentSubstitutor().cast<NewTypeSubstitutor>().takeIf { !it.isEmpty } ?: EmptySubstitutor
 
+    private fun arePostponedVariablesInferred() = commonSystem.notFixedTypeVariables.isEmpty()
+
     override fun initializeLambda(lambda: ResolvedLambdaAtom) {
         this.lambda = lambda
     }
 
     override fun inferPostponedVariables(
         lambda: ResolvedLambdaAtom,
-        initialStorage: ConstraintStorage,
+        constraintSystemBuilder: ConstraintSystemBuilder,
         completionMode: ConstraintSystemCompletionMode,
         diagnosticsHolder: KotlinDiagnosticsHolder,
     ): Map<TypeConstructor, UnwrappedType>? {
         initializeLambda(lambda)
 
-        fun getResultingSubstitutor(): NewTypeSubstitutor {
+        val initialStorage = constraintSystemBuilder.currentStorage()
+        val resultingSubstitutor by lazy {
             val storageSubstitutor = initialStorage.buildResultingSubstitutor(commonSystem, transformTypeVariablesToErrorTypes = false)
-            return ComposedSubstitutor(storageSubstitutor, commonSystem.buildCurrentSubstitutor() as NewTypeSubstitutor)
+            ComposedSubstitutor(storageSubstitutor, commonSystem.buildCurrentSubstitutor() as NewTypeSubstitutor)
         }
 
         val effectivelyEmptyConstraintSystem = initializeCommonSystem(initialStorage)
 
         if (effectivelyEmptyConstraintSystem) {
             if (isTopLevelBuilderInferenceCall()) {
-                updateAllCalls(getResultingSubstitutor())
+                updateAllCalls(resultingSubstitutor)
             }
             return null
         }
@@ -261,8 +264,14 @@ class BuilderInferenceSession(
             diagnosticsHolder
         )
 
+        if (completionMode == ConstraintSystemCompletionMode.FULL) {
+            constraintSystemBuilder.substituteFixedVariables(
+                ComposedSubstitutor(resultingSubstitutor, createNonFixedTypeToVariableSubstitutor())
+            )
+        }
+
         if (isTopLevelBuilderInferenceCall()) {
-            updateAllCalls(getResultingSubstitutor())
+            updateAllCalls(resultingSubstitutor)
         }
 
         return commonSystem.fixedTypeVariables.cast() // TODO: SUB

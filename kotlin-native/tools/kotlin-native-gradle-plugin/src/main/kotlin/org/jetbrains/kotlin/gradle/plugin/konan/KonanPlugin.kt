@@ -22,7 +22,6 @@ import org.gradle.api.*
 import org.gradle.api.component.ComponentWithVariants
 import org.gradle.api.component.SoftwareComponent
 import org.gradle.api.file.FileCollection
-import org.gradle.api.internal.FeaturePreviews
 import org.gradle.api.internal.component.SoftwareComponentInternal
 import org.gradle.api.internal.component.UsageContext
 import org.gradle.api.internal.project.ProjectInternal
@@ -44,7 +43,6 @@ import org.jetbrains.kotlin.gradle.plugin.konan.KonanPlugin.Companion.COMPILE_AL
 import org.jetbrains.kotlin.gradle.plugin.tasks.*
 import org.jetbrains.kotlin.konan.CURRENT
 import org.jetbrains.kotlin.konan.CompilerVersion
-import org.jetbrains.kotlin.konan.parseCompilerVersion
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.target.buildDistribution
@@ -394,8 +392,9 @@ class KonanPlugin @Inject constructor(private val registry: ToolingModelBuilderR
                 .forEach { task ->
                     val isCrossCompile = (task.target != HostManager.host.visibleName)
                     if (!isCrossCompile && !project.hasProperty("konanNoRun"))
-                    task.runTask = project.tasks.register("run${task.artifactName.capitalize()}", Exec::class.java) {
-                        group= "run"
+                    task.runTask = project.tasks.register(
+                        "run${task.artifactName.replaceFirstChar { it.uppercase() }}", Exec::class.java) {
+                        group = "run"
                         dependsOn(task)
                         val artifactPathClosure = object : Closure<String>(this) {
                             override fun call() = task.artifactPath

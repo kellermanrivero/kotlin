@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.util.capitalizeDecapitalize.capitalizeAsciiOnly
 import org.jetbrains.kotlin.utils.keysToMap
 import java.lang.invoke.MethodType
 
+val intrinsicConstEvaluationAnnotation = FqName("kotlin.internal.IntrinsicConstEvaluation")
 val compileTimeAnnotation = FqName("kotlin.CompileTimeCalculation")
 val evaluateIntrinsicAnnotation = FqName("kotlin.EvaluateIntrinsic")
 val contractsDslAnnotation = FqName("kotlin.internal.ContractsDsl")
@@ -118,11 +119,6 @@ fun IrFunctionAccessExpression.getVarargType(index: Int): IrType? {
 
 internal fun IrFunction.getCapitalizedFileName() = this.file.name.replace(".kt", "Kt").capitalizeAsciiOnly()
 
-internal fun IrType.isUnsigned() = this.getUnsignedType() != null
-internal fun IrType.isFunction() = this.getClass()?.fqName?.startsWith("kotlin.Function") ?: false
-internal fun IrType.isKFunction() = this.getClass()?.fqName?.startsWith("kotlin.reflect.KFunction") ?: false
-internal fun IrType.isTypeParameter() = classifierOrNull is IrTypeParameterSymbol
-internal fun IrType.isThrowable() = this.getClass()?.fqName == "kotlin.Throwable"
 internal fun IrClass.isSubclassOfThrowable(): Boolean {
     return generateSequence(this) { irClass ->
         if (irClass.defaultType.isAny()) return@generateSequence null
@@ -302,5 +298,14 @@ internal fun IrGetValue.isAccessToObject(): Boolean {
 }
 
 internal fun IrFunction.isAccessorOfPropertyWithBackingField(): Boolean {
-    return this is IrSimpleFunction && this.correspondingPropertySymbol?.owner?.backingField != null
+    return this is IrSimpleFunction && this.correspondingPropertySymbol?.owner?.backingField?.initializer != null
+}
+
+internal fun State.unsignedToString(): String {
+    return when (val value = (this.fields.values.single() as Primitive<*>).value) {
+        is Byte -> value.toUByte().toString()
+        is Short -> value.toUShort().toString()
+        is Int -> value.toUInt().toString()
+        else -> (value as Number).toLong().toULong().toString()
+    }
 }

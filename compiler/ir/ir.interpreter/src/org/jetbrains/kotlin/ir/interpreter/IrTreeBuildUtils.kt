@@ -38,7 +38,7 @@ internal val TEMP_FUNCTION_FOR_INTERPRETER = object : IrDeclarationOriginImpl("T
 fun Any?.toIrConstOrNull(irType: IrType, startOffset: Int = SYNTHETIC_OFFSET, endOffset: Int = SYNTHETIC_OFFSET): IrConst<*>? {
     if (this == null) return IrConstImpl.constNull(startOffset, endOffset, irType)
 
-    val constType = irType.makeNotNull()
+    val constType = irType.makeNotNull().removeAnnotations()
     return when (irType.getPrimitiveType()) {
         PrimitiveType.BOOLEAN -> IrConstImpl.boolean(startOffset, endOffset, constType, this as Boolean)
         PrimitiveType.CHAR -> IrConstImpl.char(startOffset, endOffset, constType, this as Char)
@@ -64,31 +64,6 @@ fun Any?.toIrConstOrNull(irType: IrType, startOffset: Int = SYNTHETIC_OFFSET, en
 fun Any?.toIrConst(irType: IrType, startOffset: Int = SYNTHETIC_OFFSET, endOffset: Int = SYNTHETIC_OFFSET): IrConst<*> =
     toIrConstOrNull(irType, startOffset, endOffset)
         ?: throw UnsupportedOperationException("Unsupported const element type ${irType.makeNotNull().render()}")
-
-internal fun State.toIrExpression(expression: IrExpression): IrExpression {
-    val start = expression.startOffset
-    val end = expression.endOffset
-    val type = expression.type.makeNotNull()
-    return when (this) {
-        is Primitive<*> ->
-            when {
-                this.value == null -> this.value.toIrConst(type, start, end)
-                type.isPrimitiveType() || type.isString() -> this.value.toIrConst(type, start, end)
-                else -> expression // TODO support for arrays
-            }
-        is ExceptionState -> {
-            IrErrorExpressionImpl(expression.startOffset, expression.endOffset, expression.type, "\n" + this.getFullDescription())
-        }
-        is Complex -> {
-            val stateType = this.irClass.defaultType
-            when {
-                stateType.isUnsignedType() -> (this.fields.values.single() as Primitive<*>).value.toIrConst(type, start, end)
-                else -> expression
-            }
-        }
-        else -> expression // TODO support
-    }
-}
 
 internal fun IrFunction.createCall(origin: IrStatementOrigin? = null): IrCall {
     this as IrSimpleFunction

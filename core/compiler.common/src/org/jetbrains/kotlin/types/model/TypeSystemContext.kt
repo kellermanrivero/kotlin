@@ -289,15 +289,19 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
         }
 
     /**
-     * For case Foo <: (T..T?) return LowerBound for new constraint LowerBound <: T
-     * In FE 1.0, in case nullable it was just Foo?, so constraint was Foo? <: T
+     * For case Foo <: (T..T?) return LowerConstraint for new constraint LowerConstraint <: T
+     * In K1, in case nullable it was just Foo?, so constraint was Foo? <: T
      * But it's not 100% correct because prevent having not-nullable upper constraint on T while initial (Foo? <: (T..T?)) is not violated
      *
-     * In FIR, we try to have a correct one: (Foo!!..Foo?) <: T
+     * In FIR, we try to have a correct one: (Foo & Any..Foo?) <: T
+     *
+     * The same logic applies for T! <: UpperConstraint, as well
+     * In K1, it was reduced to T <: UpperConstraint..UpperConstraint?
+     * In FIR, we use UpperConstraint & Any..UpperConstraint?
      *
      * In future once we have only FIR (or FE 1.0 behavior is fixed) this method should be inlined to the use-site
      */
-    fun SimpleTypeMarker.createConstraintPartForLowerBoundAndFlexibleTypeVariable(): KotlinTypeMarker
+    fun useRefinedBoundsForTypeVariableInFlexiblePosition(): Boolean
 
     fun createCapturedStarProjectionForSelfType(
         typeVariable: TypeVariableTypeConstructorMarker,
@@ -347,7 +351,11 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
 
     private fun areIncompatibleSuperTypes(firstType: KotlinTypeMarker, secondType: KotlinTypeMarker): Boolean =
         firstType.typeConstructor() == secondType.typeConstructor()
-                && !AbstractTypeChecker.equalTypes(context = this, firstType, secondType)
+                && !AbstractTypeChecker.equalTypes(
+            newTypeCheckerState(errorTypesEqualToAnything = true, stubTypesEqualToAnything = true),
+            firstType,
+            secondType
+        )
 
     // interface A<T>
     // interface B : A<Int>
@@ -388,10 +396,10 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
             "One of the passed type should be an interface"
         }
         @Suppress("NAME_SHADOWING")
-        val firstType = firstType.withNullability(false).eraseContainingTypeParameters()
+        val firstType = firstType.eraseContainingTypeParameters()
 
         @Suppress("NAME_SHADOWING")
-        val secondType = secondType.withNullability(false).eraseContainingTypeParameters()
+        val secondType = secondType.eraseContainingTypeParameters()
 
         // interface A<K>
         // interface B: A<String>
@@ -410,14 +418,14 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
         val typeCheckerState = newTypeCheckerState(errorTypesEqualToAnything = true, stubTypesEqualToAnything = true)
 
         for (i in expandedTypes.indices) {
-            val firstType = expandedTypes[i]
+            val firstType = expandedTypes[i].withNullability(false)
             val firstTypeConstructor = firstType.typeConstructor()
 
             if (!firstType.mayCauseEmptyIntersection())
                 continue
 
             for (j in i + 1 until expandedTypes.size) {
-                val secondType = expandedTypes[j]
+                val secondType = expandedTypes[j].withNullability(false)
                 val secondTypeConstructor = secondType.typeConstructor()
 
                 if (!secondType.mayCauseEmptyIntersection())
@@ -576,6 +584,9 @@ interface TypeSystemContext : TypeSystemOptimizationContext {
 
     fun SimpleTypeMarker.asDefinitelyNotNullType(): DefinitelyNotNullTypeMarker?
     fun DefinitelyNotNullTypeMarker.original(): SimpleTypeMarker
+
+    fun SimpleTypeMarker.originalIfDefinitelyNotNullable(): SimpleTypeMarker = asDefinitelyNotNullType()?.original() ?: this
+
     fun KotlinTypeMarker.makeDefinitelyNotNullOrNotNull(): KotlinTypeMarker
     fun SimpleTypeMarker.makeSimpleTypeDefinitelyNotNullOrNotNull(): SimpleTypeMarker
     fun SimpleTypeMarker.isMarkedNullable(): Boolean

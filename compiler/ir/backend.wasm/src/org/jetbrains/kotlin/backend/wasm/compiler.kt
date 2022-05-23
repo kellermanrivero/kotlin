@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.wasm.ir.convertors.WasmIrToText
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-class WasmCompilerResult(val wat: String, val js: String, val wasm: ByteArray)
+class WasmCompilerResult(val wat: String?, val js: String, val wasm: ByteArray)
 
 fun compileToLoweredIr(
     depsDescriptors: ModulesStructure,
@@ -76,15 +76,21 @@ fun compileWasm(
     backendContext: WasmBackendContext,
     emitNameSection: Boolean = false,
     allowIncompleteImplementations: Boolean = false,
+    generateWat: Boolean = false,
 ): WasmCompilerResult {
     val compiledWasmModule = WasmCompiledModuleFragment(backendContext.irBuiltIns)
     val codeGenerator = WasmModuleFragmentGenerator(backendContext, compiledWasmModule, allowIncompleteImplementations = allowIncompleteImplementations)
+    allModules.forEach { codeGenerator.collectInterfaceTables(it) }
     allModules.forEach { codeGenerator.generateModule(it) }
 
     val linkedModule = compiledWasmModule.linkWasmCompiledFragments()
-    val watGenerator = WasmIrToText()
-    watGenerator.appendWasmModule(linkedModule)
-    val wat = watGenerator.toString()
+    val wat = if (generateWat) {
+        val watGenerator = WasmIrToText()
+        watGenerator.appendWasmModule(linkedModule)
+        watGenerator.toString()
+    } else {
+        null
+    }
 
     val js = compiledWasmModule.generateJs()
 
@@ -116,13 +122,18 @@ fun WasmCompiledModuleFragment.generateJs(): String {
 
 enum class WasmLoaderKind {
     D8,
+    D8NodeCompatible,
     NODE,
     BROWSER,
 }
 
 fun generateJsWasmLoader(kind: WasmLoaderKind, wasmFilePath: String, externalJs: String): String {
+    val nodeExitOnD8 =
+        if (kind == WasmLoaderKind.D8NodeCompatible) "if ((typeof process !== 'undefined') && (typeof process.versions.node !== 'undefined')) process.exit(0)\n"
+        else ""
+
     val instantiation = when (kind) {
-        WasmLoaderKind.D8 ->
+        WasmLoaderKind.D8, WasmLoaderKind.D8NodeCompatible ->
             """
                 const wasmModule = new WebAssembly.Module(read('$wasmFilePath', 'binary'));
                 const wasmInstance = new WebAssembly.Instance(wasmModule, { js_code });
@@ -158,9 +169,11 @@ fun generateJsWasmLoader(kind: WasmLoaderKind, wasmFilePath: String, externalJs:
 
         WasmLoaderKind.NODE ->
             "module.exports = wasmExports;\n"
+
+        WasmLoaderKind.D8NodeCompatible -> ""
     }
 
-    return externalJs + instantiation + init + export
+    return nodeExitOnD8 + externalJs + instantiation + init + export
 }
 
 fun writeCompilationResult(
@@ -170,7 +183,9 @@ fun writeCompilationResult(
     fileNameBase: String = "index",
 ) {
     dir.mkdirs()
-    File(dir, "$fileNameBase.wat").writeText(result.wat)
+    if (result.wat != null) {
+        File(dir, "$fileNameBase.wat").writeText(result.wat)
+    }
     File(dir, "$fileNameBase.wasm").writeBytes(result.wasm)
     val jsWithLoader = generateJsWasmLoader(loaderKind, "./$fileNameBase.wasm", result.js)
     File(dir, "$fileNameBase.js").writeText(jsWithLoader)

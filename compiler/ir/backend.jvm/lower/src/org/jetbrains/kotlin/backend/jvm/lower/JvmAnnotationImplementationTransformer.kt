@@ -5,8 +5,7 @@
 
 package org.jetbrains.kotlin.backend.jvm.lower
 
-import org.jetbrains.kotlin.backend.common.deepCopyWithVariables
-import org.jetbrains.kotlin.backend.common.ir.copyTo
+import org.jetbrains.kotlin.ir.deepCopyWithVariables
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
@@ -68,7 +67,7 @@ class JvmAnnotationImplementationTransformer(val jvmContext: JvmBackendContext, 
         irGet(
             jvmContext.ir.symbols.javaLangClass.starProjectedType,
             null,
-            jvmContext.ir.symbols.kClassJava.owner.getter!!.symbol
+            jvmContext.ir.symbols.kClassJavaPropertyGetter.symbol
         ).apply {
             extensionReceiver = irExpression
         }

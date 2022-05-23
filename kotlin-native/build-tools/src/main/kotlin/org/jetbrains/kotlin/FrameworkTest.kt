@@ -145,7 +145,9 @@ open class FrameworkTest : DefaultTask(), KonanTestExecutable {
         val provider = Paths.get(testOutput, name, "provider.swift")
         FileWriter(provider.toFile()).use { writer ->
             val providers = swiftSources.toFiles(Language.Swift)
-                    .map { it.name.toString().removeSuffix(".swift").capitalize() }
+                    .map { file ->
+                        file.name.toString().removeSuffix(".swift").replaceFirstChar { it.uppercase() }
+                    }
                     .map { "${it}Tests" }
 
             writer.write("""

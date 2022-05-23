@@ -11,19 +11,21 @@ import org.jetbrains.kotlin.backend.common.serialization.mangle.MangleMode
 import org.jetbrains.kotlin.backend.common.serialization.mangle.collectForMangler
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticPropertyAccessor
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.declarations.utils.isStatic
+import org.jetbrains.kotlin.fir.java.declarations.FirJavaField
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.toSymbol
+import org.jetbrains.kotlin.fir.signaturer.irName
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
-import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 
@@ -46,7 +48,7 @@ open class FirJvmMangleComputer(
 
     open fun FirFunction.specialValueParamPrefix(param: FirValueParameter): String = ""
 
-    private fun addReturnType(): Boolean = false
+    private fun addReturnType(): Boolean = true
 
     override fun copy(newMode: MangleMode): FirJvmMangleComputer =
         FirJvmMangleComputer(builder, newMode, session)
@@ -127,7 +129,7 @@ open class FirJvmMangleComputer(
             return
         }
 
-        val name = (this as? FirSimpleFunction)?.name ?: SpecialNames.ANONYMOUS
+        val name = this.irName
         builder.append(name.asString())
 
         platformSpecificSuffix()?.let {
@@ -135,10 +137,10 @@ open class FirJvmMangleComputer(
             builder.append(it)
         }
 
-        mangleSignature(isCtor, isStatic)
+        mangleSignature(isCtor, isStatic, container)
     }
 
-    private fun FirFunction.mangleSignature(isCtor: Boolean, isStatic: Boolean) {
+    private fun FirFunction.mangleSignature(isCtor: Boolean, isStatic: Boolean, container: FirDeclaration) {
         if (!mode.signature) {
             return
         }
@@ -152,7 +154,8 @@ open class FirJvmMangleComputer(
             mangleType(builder, it.typeRef.coneType)
         }
 
-        receiverTypeRef?.let {
+        val receiverType = receiverTypeRef ?: (this as? FirPropertyAccessor)?.propertySymbol?.fir?.receiverTypeRef
+        receiverType?.let {
             builder.appendSignature(MangleConstant.EXTENSION_RECEIVER_PREFIX)
             mangleType(builder, it.coneType)
         }
@@ -161,7 +164,7 @@ open class FirJvmMangleComputer(
             appendSignature(specialValueParamPrefix(it))
             mangleValueParameter(this, it)
         }
-        typeParameters.filterIsInstance<FirTypeParameter>().withIndex().toList()
+        (container as? FirTypeParametersOwner)?.typeParameters?.withIndex()?.toList().orEmpty()
             .collectForMangler(builder, MangleConstant.TYPE_PARAMETERS) { (index, typeParameter) ->
                 mangleTypeParameter(this, typeParameter, index)
             }
@@ -252,14 +255,22 @@ open class FirJvmMangleComputer(
                     tBuilder.appendSignature(MangleConstant.ENHANCED_NULLABILITY_MARK)
                 }
             }
+            is ConeRawType -> {
+                mangleType(tBuilder, type.lowerBound)
+            }
             is ConeFlexibleType -> {
-                // TODO: is that correct way to mangle flexible type?
-                with(MangleConstant.FLEXIBLE_TYPE) {
-                    tBuilder.appendSignature(prefix)
-                    mangleType(tBuilder, type.lowerBound)
-                    tBuilder.appendSignature(separator)
-                    mangleType(tBuilder, type.upperBound)
-                    tBuilder.appendSignature(suffix)
+                with(session.typeContext) {
+                    // Need to reproduce type approximation done for flexible types in TypeTranslator.
+                    // For now, we replicate the current behaviour of Fir2IrTypeConverter and just take the upper bound
+                    val upper = type.upperBound
+                    if (upper is ConeClassLikeType) {
+                        val lower = type.lowerBound as? ConeClassLikeType ?: error("Expecting class-like type, got ${type.lowerBound}")
+                        val intermediate = if (lower.lookupTag == upper.lookupTag) {
+                            lower.replaceArguments(upper.getArguments())
+                        } else lower
+                        val mixed = if (upper.isNullable) intermediate.makeNullable() else intermediate.makeDefinitelyNotNullOrNotNull()
+                        mangleType(tBuilder, mixed as ConeKotlinType)
+                    } else mangleType(tBuilder, upper)
                 }
             }
             is ConeDefinitelyNotNullType -> {
@@ -268,6 +279,10 @@ open class FirJvmMangleComputer(
             }
             is ConeCapturedType -> {
                 mangleType(tBuilder, type.lowerType ?: type.constructor.supertypes!!.first())
+            }
+            is ConeIntersectionType -> {
+                // TODO: add intersectionTypeApproximation
+                mangleType(tBuilder, type.intersectedTypes.first())
             }
             else -> error("Unexpected type $type")
         }
@@ -281,30 +296,43 @@ open class FirJvmMangleComputer(
         regularClass.mangleSimpleDeclaration(regularClass.name.asString())
     }
 
-    override fun visitProperty(property: FirProperty, data: Boolean) {
-        isRealExpect = isRealExpect or property.isExpect
-        typeParameterContainer.add(property)
-        property.visitParent()
+    override fun visitAnonymousObject(anonymousObject: FirAnonymousObject, data: Boolean) {
+        anonymousObject.mangleSimpleDeclaration("<anonymous>")
+    }
 
-        val isStaticProperty = property.isStatic
+    override fun visitVariable(variable: FirVariable, data: Boolean) {
+        isRealExpect = isRealExpect or variable.isExpect
+        typeParameterContainer.add(variable)
+        variable.visitParent()
+
+        val isStaticProperty = variable.isStatic
         if (isStaticProperty) {
             builder.appendSignature(MangleConstant.STATIC_MEMBER_MARK)
         }
 
-        property.receiverTypeRef?.let {
+        variable.receiverTypeRef?.let {
             builder.appendSignature(MangleConstant.EXTENSION_RECEIVER_PREFIX)
             mangleType(builder, it.coneType)
         }
 
-        property.typeParameters.withIndex().toList().collectForMangler(builder, MangleConstant.TYPE_PARAMETERS) { (index, typeParameter) ->
-            mangleTypeParameter(this, typeParameter, index)
+        variable.typeParameters.withIndex().toList().collectForMangler(builder, MangleConstant.TYPE_PARAMETERS) { (index, typeParameter) ->
+            mangleTypeParameter(this, typeParameter.symbol.fir, index)
         }
 
-        builder.append(property.name.asString())
+        builder.append(variable.name.asString())
     }
 
-    override fun visitField(field: FirField, data: Boolean) =
-        field.mangleSimpleDeclaration(field.name.asString())
+    override fun visitProperty(property: FirProperty, data: Boolean) {
+        visitVariable(property, data)
+    }
+
+    override fun visitField(field: FirField, data: Boolean) {
+        if (field is FirJavaField) {
+            field.mangleSimpleDeclaration(field.name.asString())
+        } else {
+            visitVariable(field, data)
+        }
+    }
 
     override fun visitEnumEntry(enumEntry: FirEnumEntry, data: Boolean) {
         enumEntry.mangleSimpleDeclaration(enumEntry.name.asString())
@@ -321,6 +349,15 @@ open class FirJvmMangleComputer(
 
     override fun visitConstructor(constructor: FirConstructor, data: Boolean) =
         constructor.mangleFunction(isCtor = true, isStatic = false, constructor)
+
+    override fun visitPropertyAccessor(propertyAccessor: FirPropertyAccessor, data: Boolean) {
+        if (propertyAccessor is FirSyntheticPropertyAccessor) {
+            // No need to distinguish between the accessor and its delegate.
+            visitSimpleFunction(propertyAccessor.delegate, data)
+        } else {
+            propertyAccessor.mangleFunction(isCtor = false, propertyAccessor.isStatic, propertyAccessor.propertySymbol!!.fir)
+        }
+    }
 
     override fun computeMangle(declaration: FirDeclaration): String {
         declaration.accept(this, true)

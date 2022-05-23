@@ -625,6 +625,7 @@ public class DefaultErrorMessages {
                                                "This call will resolve to another declaration: {0}. " +
                                                "See https://youtrack.jetbrains.com/issue/KT-49276 for more details. " +
                                                "Please specify a progression type of argument explicitly through explicit cast to resolve to a proper declaration", COMPACT);
+        MAP.put(EXPRESSION_AFTER_TYPE_REFERENCE_WITHOUT_SPACING_NOT_ALLOWED, "Expression body directly after type without a whitespace in-between the '>=' is only allowed since version 1.8");
 
         MAP.put(TOO_MANY_ARGUMENTS, "Too many arguments for {0}", FQ_NAMES_IN_TYPES);
 
@@ -1120,6 +1121,7 @@ public class DefaultErrorMessages {
         MAP.put(MULTIPLE_ARGUMENTS_APPLICABLE_FOR_CONTEXT_RECEIVER, "Multiple arguments applicable for context receiver: {0}", TO_STRING);
         MAP.put(AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER, "With implicit context receiver, call is ambiguous. Specify the receiver explicitly");
         MAP.put(UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL, "To use contextual declarations, specify the `-Xcontext-receivers` compiler option");
+        MAP.put(SUBTYPING_BETWEEN_CONTEXT_RECEIVERS, "Subtyping relation between context receivers is prohibited");
 
         MAP.setImmutable();
 

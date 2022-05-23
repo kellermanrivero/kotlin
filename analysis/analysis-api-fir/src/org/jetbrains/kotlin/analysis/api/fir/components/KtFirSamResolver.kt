@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.symbols.pointers.getClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSamConstructorSymbol
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
@@ -22,13 +22,13 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirBodyResolve
 
 internal class KtFirSamResolver(
     override val analysisSession: KtFirAnalysisSession,
-    override val token: ValidityToken,
+    override val token: KtLifetimeToken,
 ) : KtSamResolver(), KtFirAnalysisSessionComponent {
 
     override fun getSamConstructor(ktClassLikeSymbol: KtClassLikeSymbol): KtSamConstructorSymbol? {
         val classId = ktClassLikeSymbol.classIdIfNonLocal ?: return null
         val owner = analysisSession.getClassLikeSymbol(classId) as? FirRegularClass ?: return null
-        val resolver = LocalSamResolver(analysisSession, analysisSession.rootModuleSession)
+        val resolver = LocalSamResolver(analysisSession, analysisSession.useSiteSession)
         return resolver.getSamConstructor(owner)?.let {
             analysisSession.firSymbolBuilder.functionLikeBuilder.buildSamConstructorSymbol(it.symbol)
         }

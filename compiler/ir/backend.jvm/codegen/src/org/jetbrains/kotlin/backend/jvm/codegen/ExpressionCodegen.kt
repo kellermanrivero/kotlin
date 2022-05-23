@@ -291,9 +291,7 @@ class ExpressionCodegen(
             irFunction.origin.isSynthetic ||
             // TODO: refine this condition to not generate nullability assertions on parameters
             //       corresponding to captured variables and anonymous object super constructor arguments
-            (irFunction is IrConstructor &&
-                    (irFunction.parentAsClass.isAnonymousObject ||
-                            irFunction.parentAsClass.origin == IrDeclarationOrigin.GENERATED_SAM_IMPLEMENTATION)) ||
+            (irFunction is IrConstructor && irFunction.parentAsClass.isAnonymousObject) ||
             // TODO: Implement this as a lowering, so that we can more easily exclude generated methods.
             irFunction.origin == JvmLoweredDeclarationOrigin.INLINE_CLASS_GENERATED_IMPL_METHOD ||
             // Although these are accessible from Java, the functions they bridge to already have the assertions.
@@ -659,18 +657,6 @@ class ExpressionCodegen(
             val value = initializer.accept(this, data)
             initializer.markLineNumber(startOffset = true)
             value.materializeAt(varType, declaration.type)
-            // We need to generate CHECKCAST from ACONST_NULL here for coroutines,
-            // since otherwise, upon spilling and then unspilling, we will get VerifyError,
-            // because state-machine builder does not know the type of the ACONST_NULL
-            // and assumes it to be Ljava/lang/Object;, which is incorrect.
-            // Generating CHECKCAST hints the state-machine builder the type of the variable
-            // avoiding the issue of VerifyError. See KT-51718
-            // Exception is Ljava/lang/Object;, since CHECKCAST Ljava/lang/Object; is effectively no-op.
-            if (initializer.isNullConst() && varType != OBJECT_TYPE &&
-                (irFunction.isSuspend || irFunction.isInvokeSuspendOfLambda())
-            ) {
-                mv.checkcast(varType)
-            }
             declaration.markLineNumber(startOffset = true)
             mv.store(index, varType)
         } else if (declaration.isVisibleInLVT) {

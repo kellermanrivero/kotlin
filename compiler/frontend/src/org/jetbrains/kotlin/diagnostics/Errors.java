@@ -235,6 +235,8 @@ public interface Errors {
 
     DiagnosticFactoryForDeprecation1<PsiElement, CallableDescriptor> PROGRESSIONS_CHANGING_RESOLVE = DiagnosticFactoryForDeprecation1.create(LanguageFeature.ProgressionsChangingResolve);
 
+    DiagnosticFactory0<PsiElement> EXPRESSION_AFTER_TYPE_REFERENCE_WITHOUT_SPACING_NOT_ALLOWED = DiagnosticFactory0.create(ERROR);
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Errors in declarations
@@ -1308,6 +1310,7 @@ public interface Errors {
     DiagnosticFactory1<KtElement, String> MULTIPLE_ARGUMENTS_APPLICABLE_FOR_CONTEXT_RECEIVER = DiagnosticFactory1.create(ERROR);
     DiagnosticFactory0<KtElement> AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER = DiagnosticFactory0.create(ERROR);
     DiagnosticFactory0<KtElement> UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL = DiagnosticFactory0.create(ERROR);
+    DiagnosticFactory0<KtElement> SUBTYPING_BETWEEN_CONTEXT_RECEIVERS = DiagnosticFactory0.create(ERROR);
 
     // Error sets
     ImmutableSet<? extends DiagnosticFactory<?>> UNRESOLVED_REFERENCE_DIAGNOSTICS = ImmutableSet.of(

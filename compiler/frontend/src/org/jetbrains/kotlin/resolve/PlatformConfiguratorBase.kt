@@ -48,8 +48,10 @@ private val DEFAULT_DECLARATION_CHECKERS = listOf(
     SuspendFunctionAsSupertypeChecker,
     EnumCompanionInEnumConstructorCallChecker,
     ContextualDeclarationChecker,
+    SubtypingBetweenContextReceiversChecker,
     ValueParameterUsageInDefaultArgumentChecker,
     CyclicAnnotationsChecker,
+    ExpressionAfterTypeParameterWithoutSpacingChecker,
 )
 
 private val DEFAULT_CALL_CHECKERS = listOf(

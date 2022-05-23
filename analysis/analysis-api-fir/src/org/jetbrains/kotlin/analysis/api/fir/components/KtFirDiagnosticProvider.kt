@@ -9,8 +9,8 @@ import org.jetbrains.kotlin.analysis.api.components.KtDiagnosticCheckerFilter
 import org.jetbrains.kotlin.analysis.api.components.KtDiagnosticProvider
 import org.jetbrains.kotlin.analysis.api.diagnostics.KtDiagnosticWithPsi
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.DiagnosticCheckerFilter
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDiagnosticsForFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getDiagnostics
@@ -19,18 +19,18 @@ import org.jetbrains.kotlin.psi.KtFile
 
 internal class KtFirDiagnosticProvider(
     override val analysisSession: KtFirAnalysisSession,
-    override val token: ValidityToken,
+    override val token: KtLifetimeToken,
 ) : KtDiagnosticProvider(), KtFirAnalysisSessionComponent {
 
     override fun getDiagnosticsForElement(
         element: KtElement,
         filter: KtDiagnosticCheckerFilter
     ): Collection<KtDiagnosticWithPsi<*>> = withValidityAssertion {
-        element.getDiagnostics(firResolveState, filter.asLLFilter()).map { it.asKtDiagnostic() }
+        element.getDiagnostics(firResolveSession, filter.asLLFilter()).map { it.asKtDiagnostic() }
     }
 
     override fun collectDiagnosticsForFile(ktFile: KtFile, filter: KtDiagnosticCheckerFilter): Collection<KtDiagnosticWithPsi<*>> =
-        ktFile.collectDiagnosticsForFile(firResolveState, filter.asLLFilter()).map { it.asKtDiagnostic() }
+        ktFile.collectDiagnosticsForFile(firResolveSession, filter.asLLFilter()).map { it.asKtDiagnostic() }
 
 
     private fun KtDiagnosticCheckerFilter.asLLFilter() = when (this) {

@@ -11,48 +11,57 @@ import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiModificationTracker
 import org.jetbrains.annotations.TestOnly
+import org.jetbrains.kotlin.analysis.api.KtAnalysisApiInternals
 import org.jetbrains.kotlin.analysis.providers.createProjectWideOutOfBlockModificationTracker
-import org.jetbrains.kotlin.analysis.api.InvalidWayOfUsingAnalysisSession
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSessionProvider
-import org.jetbrains.kotlin.analysis.api.isValid
+import org.jetbrains.kotlin.analysis.api.session.KtAnalysisSessionProvider
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityTokenFactory
+import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeTokenFactory
 import org.jetbrains.kotlin.psi.KtElement
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
-@OptIn(InvalidWayOfUsingAnalysisSession::class)
-abstract class CachingKtAnalysisSessionProvider<State : Any>(private val project: Project) : KtAnalysisSessionProvider() {
-    private val cache = KtAnalysisSessionCache<Pair<State, KClass<out ValidityToken>>>(project)
+@KtAnalysisApiInternals
+abstract class CachingKtAnalysisSessionProvider<State : Any>(project: Project) : KtAnalysisSessionProvider(project) {
+    private val cache = KtAnalysisSessionCache<Pair<State, KClass<out KtLifetimeToken>>>(project)
 
-    protected abstract fun getResolveState(contextElement: KtElement): State
-    protected abstract fun getResolveState(contextSymbol: KtSymbol): State
+    protected abstract fun getFirResolveSession(contextElement: KtElement): State
+    protected abstract fun getFirResolveSession(contextSymbol: KtSymbol): State
+
+    protected abstract fun getFirResolveSession(contextModule: KtModule): State
 
     protected abstract fun createAnalysisSession(
-        resolveState: State,
-        validityToken: ValidityToken,
+        firResolveSession: State,
+        token: KtLifetimeToken,
     ): KtAnalysisSession
 
-    @InvalidWayOfUsingAnalysisSession
-    final override fun getAnalysisSession(contextElement: KtElement, factory: ValidityTokenFactory): KtAnalysisSession {
-        val resolveState = getResolveState(contextElement)
-        return cache.getAnalysisSession(resolveState to factory.identifier) {
+    final override fun getAnalysisSession(useSiteKtElement: KtElement, factory: KtLifetimeTokenFactory): KtAnalysisSession {
+        val firResolveSession = getFirResolveSession(useSiteKtElement)
+        return cache.getAnalysisSession(firResolveSession to factory.identifier) {
+            val token = factory.create(project)
+            createAnalysisSession(firResolveSession, token)
+        }
+    }
+
+    final override fun getAnalysisSessionByUseSiteKtModule(useSiteKtModule: KtModule, factory: KtLifetimeTokenFactory): KtAnalysisSession {
+        val firResolveSession = getFirResolveSession(useSiteKtModule)
+        return cache.getAnalysisSession(firResolveSession to factory.identifier) {
             val validityToken = factory.create(project)
-            createAnalysisSession(resolveState, validityToken)
+            createAnalysisSession(firResolveSession, validityToken)
         }
     }
 
     final override fun getAnalysisSessionBySymbol(contextSymbol: KtSymbol): KtAnalysisSession {
-        val resolveState = getResolveState(contextSymbol)
+        val firResolveSession = getFirResolveSession(contextSymbol)
         val token = contextSymbol.token
-        return getCachedAnalysisSession(resolveState, token)
-            ?: createAnalysisSession(resolveState, contextSymbol.token)
+        return getCachedAnalysisSession(firResolveSession, token)
+            ?: createAnalysisSession(firResolveSession, contextSymbol.token)
     }
 
-    private fun getCachedAnalysisSession(resolveState: State, token: ValidityToken): KtAnalysisSession? {
-        return cache.getCachedAnalysisSession(resolveState to token::class)
+    private fun getCachedAnalysisSession(firResolveSession: State, token: KtLifetimeToken): KtAnalysisSession? {
+        return cache.getCachedAnalysisSession(firResolveSession to token::class)
     }
 
     @TestOnly

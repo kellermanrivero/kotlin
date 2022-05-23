@@ -11,7 +11,6 @@ import org.gradle.api.file.ProjectLayout
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.*
-import org.gradle.work.NormalizeLineEndings
 import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
@@ -91,7 +90,6 @@ abstract class KotlinJsIrLink @Inject constructor(
 
     @get:SkipWhenEmpty
     @get:IgnoreEmptyDirectories
-    @get:NormalizeLineEndings
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     internal abstract val entryModule: DirectoryProperty
@@ -181,7 +179,12 @@ abstract class KotlinJsIrLink @Inject constructor(
     }
 
     private fun KotlinJsOptions.configureOptions(vararg additionalCompilerArgs: String) {
-        freeCompilerArgs += additionalCompilerArgs.toList() +
+        freeCompilerArgs += additionalCompilerArgs
+            .mapNotNull { arg ->
+                if (kotlinOptions.freeCompilerArgs
+                        .any { it.startsWith(arg) }
+                ) null else arg
+            } +
                 PRODUCE_JS +
                 "$ENTRY_IR_MODULE=${entryModule.get().asFile.canonicalPath}"
 

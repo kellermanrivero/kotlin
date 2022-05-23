@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.runners.*
 import org.jetbrains.kotlin.test.runners.codegen.*
+import org.jetbrains.kotlin.test.runners.ir.AbstractLoweredIrInterpreterTest
 import org.jetbrains.kotlin.test.runners.ir.AbstractFir2IrTextTest
 import org.jetbrains.kotlin.test.runners.ir.AbstractIrTextTest
 import org.jetbrains.kotlin.test.runners.ir.AbstractLightTreeFir2IrTextTest
@@ -241,6 +242,18 @@ fun generateJUnit5CompilerTests(args: Array<String>) {
 
             testClass<AbstractFirLocalVariableTest> {
                 model("debug/localVariables")
+            }
+
+            testClass<AbstractLoweredIrInterpreterTest> {
+                model("ir/loweredIr")
+            }
+
+            testClass<AbstractFirDiagnosticsTestWithJvmIrBackend> {
+                model("diagnostics/firTestWithJvmBackend")
+            }
+
+            testClass<AbstractFirSerializeCompileKotlinAgainstInlineKotlinTest> {
+                model("codegen/boxInline")
             }
         }
 

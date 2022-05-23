@@ -2078,6 +2078,12 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             }
 
             @Test
+            @TestMetadata("kt51844.kt")
+            public void testKt51844() throws Exception {
+                runTest("compiler/testData/codegen/box/callableReference/kt51844.kt");
+            }
+
+            @Test
             @TestMetadata("nested.kt")
             public void testNested() throws Exception {
                 runTest("compiler/testData/codegen/box/callableReference/nested.kt");
@@ -5510,6 +5516,12 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             }
 
             @Test
+            @TestMetadata("genericSetter.kt")
+            public void testGenericSetter() throws Exception {
+                runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/genericSetter.kt");
+            }
+
+            @Test
             @TestMetadata("innerClassConstructor.kt")
             public void testInnerClassConstructor() throws Exception {
                 runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/innerClassConstructor.kt");
@@ -5558,6 +5570,12 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             }
 
             @Test
+            @TestMetadata("nestedClassAsBound.kt")
+            public void testNestedClassAsBound() throws Exception {
+                runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/nestedClassAsBound.kt");
+            }
+
+            @Test
             @TestMetadata("nestedClassInAnnotationArgument.kt")
             public void testNestedClassInAnnotationArgument() throws Exception {
                 runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/nestedClassInAnnotationArgument.kt");
@@ -5585,6 +5603,12 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             @TestMetadata("nestedTypeAliasExpansion.kt")
             public void testNestedTypeAliasExpansion() throws Exception {
                 runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/nestedTypeAliasExpansion.kt");
+            }
+
+            @Test
+            @TestMetadata("privateSuperType.kt")
+            public void testPrivateSuperType() throws Exception {
+                runTest("compiler/testData/codegen/box/compileKotlinAgainstKotlin/privateSuperType.kt");
             }
 
             @Test
@@ -8060,6 +8084,18 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             }
 
             @Test
+            @TestMetadata("kt52311_nullOnLeft.kt")
+            public void testKt52311_nullOnLeft() throws Exception {
+                runTest("compiler/testData/codegen/box/coroutines/kt52311_nullOnLeft.kt");
+            }
+
+            @Test
+            @TestMetadata("kt52311_nullOnRight.kt")
+            public void testKt52311_nullOnRight() throws Exception {
+                runTest("compiler/testData/codegen/box/coroutines/kt52311_nullOnRight.kt");
+            }
+
+            @Test
             @TestMetadata("lastExpressionIsLoop.kt")
             public void testLastExpressionIsLoop() throws Exception {
                 runTest("compiler/testData/codegen/box/coroutines/lastExpressionIsLoop.kt");
@@ -8312,6 +8348,12 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             }
 
             @Test
+            @TestMetadata("suspendInlineReference.kt")
+            public void testSuspendInlineReference() throws Exception {
+                runTest("compiler/testData/codegen/box/coroutines/suspendInlineReference.kt");
+            }
+
+            @Test
             @TestMetadata("suspendLambdaInInterface.kt")
             public void testSuspendLambdaInInterface() throws Exception {
                 runTest("compiler/testData/codegen/box/coroutines/suspendLambdaInInterface.kt");
@@ -8422,6 +8464,18 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
                 @TestMetadata("lambdaWithMultipleParameters.kt")
                 public void testLambdaWithMultipleParameters() throws Exception {
                     runTest("compiler/testData/codegen/box/coroutines/bridges/lambdaWithMultipleParameters.kt");
+                }
+
+                @Test
+                @TestMetadata("mapSuspendAbstractClear.kt")
+                public void testMapSuspendAbstractClear() throws Exception {
+                    runTest("compiler/testData/codegen/box/coroutines/bridges/mapSuspendAbstractClear.kt");
+                }
+
+                @Test
+                @TestMetadata("mapSuspendClear.kt")
+                public void testMapSuspendClear() throws Exception {
+                    runTest("compiler/testData/codegen/box/coroutines/bridges/mapSuspendClear.kt");
                 }
             }
 
@@ -15889,15 +15943,15 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
                 }
 
                 @Test
-                @TestMetadata("kt49285.kt")
-                public void testKt49285() throws Exception {
-                    runTest("compiler/testData/codegen/box/inference/builderInference/kt49285.kt");
-                }
-
-                @Test
                 @TestMetadata("kt49887.kt")
                 public void testKt49887() throws Exception {
                     runTest("compiler/testData/codegen/box/inference/builderInference/kt49887.kt");
+                }
+
+                @Test
+                @TestMetadata("kt51988.kt")
+                public void testKt51988() throws Exception {
+                    runTest("compiler/testData/codegen/box/inference/builderInference/kt51988.kt");
                 }
 
                 @Test
@@ -22865,6 +22919,18 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             }
 
             @Test
+            @TestMetadata("kt52163_boolean.kt")
+            public void testKt52163_boolean() throws Exception {
+                runTest("compiler/testData/codegen/box/intrinsics/kt52163_boolean.kt");
+            }
+
+            @Test
+            @TestMetadata("kt52163_doubleCompareToInt.kt")
+            public void testKt52163_doubleCompareToInt() throws Exception {
+                runTest("compiler/testData/codegen/box/intrinsics/kt52163_doubleCompareToInt.kt");
+            }
+
+            @Test
             @TestMetadata("kt8666.kt")
             public void testKt8666() throws Exception {
                 runTest("compiler/testData/codegen/box/intrinsics/kt8666.kt");
@@ -26360,12 +26426,6 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             @Test
             public void testAllFilesPresentInPlatformTypes() throws Exception {
                 KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/platformTypes"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
-            }
-
-            @Test
-            @TestMetadata("inferenceFlexibleTToNullable.kt")
-            public void testInferenceFlexibleTToNullable() throws Exception {
-                runTest("compiler/testData/codegen/box/platformTypes/inferenceFlexibleTToNullable.kt");
             }
 
             @Nested
@@ -42056,6 +42116,12 @@ public class NativeCodegenBoxTestGenerated extends AbstractNativeCodegenBoxTest 
             @TestMetadata("nestedInPrivateClass.kt")
             public void testNestedInPrivateClass() throws Exception {
                 runTest("compiler/testData/codegen/boxInline/private/nestedInPrivateClass.kt");
+            }
+
+            @Test
+            @TestMetadata("nestedInPrivateClass2.kt")
+            public void testNestedInPrivateClass2() throws Exception {
+                runTest("compiler/testData/codegen/boxInline/private/nestedInPrivateClass2.kt");
             }
 
             @Test

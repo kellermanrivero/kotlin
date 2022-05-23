@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.backend.jvm.lower
 
-import org.jetbrains.kotlin.backend.common.ir.createImplicitParameterDeclarationWithWrappedDescriptor
 import org.jetbrains.kotlin.backend.common.lower.ClosureAnnotator
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.phaser.makeCustomPhase
@@ -301,7 +300,7 @@ private class ScriptsToClassesLowering(val context: JvmBackendContext, val inner
 
     private fun IrClass.addScriptMainFun() {
         val javaLangClass = context.ir.symbols.javaLangClass
-        val kClassJava = context.ir.symbols.kClassJava
+        val kClassJavaPropertyGetter = context.ir.symbols.kClassJavaPropertyGetter
 
         val scriptRunnerPackageClass: IrClassSymbol = context.irFactory.buildClass {
             name = Name.identifier("RunnerKt")
@@ -343,7 +342,7 @@ private class ScriptsToClassesLowering(val context: JvmBackendContext, val inner
                     irCall(scriptRunHelper).apply {
                         putValueArgument(
                             0,
-                            irGet(javaLangClass.starProjectedType, null, kClassJava.owner.getter!!.symbol).apply {
+                            irGet(javaLangClass.starProjectedType, null, kClassJavaPropertyGetter.symbol).apply {
                                 extensionReceiver = scriptClassRef
                             }
                         )

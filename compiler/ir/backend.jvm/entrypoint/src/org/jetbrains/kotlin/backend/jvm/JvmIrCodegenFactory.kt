@@ -8,10 +8,8 @@ package org.jetbrains.kotlin.backend.jvm
 import org.jetbrains.kotlin.analyzer.hasJdkCapability
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContextImpl
-import org.jetbrains.kotlin.backend.common.phaser.CompilerPhase
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.invokeToplevel
-import org.jetbrains.kotlin.backend.common.phaser.then
 import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
 import org.jetbrains.kotlin.backend.jvm.intrinsics.IrIntrinsicMethods
 import org.jetbrains.kotlin.backend.jvm.ir.getIoFile
@@ -46,7 +44,6 @@ import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorForNotFoun
 import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorImpl
 import org.jetbrains.kotlin.psi2ir.generators.fragments.EvaluatorFragmentInfo
 import org.jetbrains.kotlin.psi2ir.generators.fragments.FragmentContext
-import org.jetbrains.kotlin.psi2ir.generators.generateTypicalIrProviderList
 import org.jetbrains.kotlin.psi2ir.preprocessing.SourceDeclarationsPreprocessor
 import org.jetbrains.kotlin.resolve.CleanableBindingContext
 
@@ -64,7 +61,7 @@ open class JvmIrCodegenFactory(
         val symbolTable: SymbolTable,
         val phaseConfig: PhaseConfig?,
         val irProviders: List<IrProvider>,
-        val extensions: JvmGeneratorExtensionsImpl,
+        val extensions: JvmGeneratorExtensions,
         val backendExtension: JvmBackendExtension,
         val notifyCodegenStart: () -> Unit
     ) : CodegenFactory.BackendInput
@@ -294,26 +291,14 @@ open class JvmIrCodegenFactory(
         state: GenerationState,
         irModuleFragment: IrModuleFragment,
         symbolTable: SymbolTable,
-        extensions: JvmGeneratorExtensionsImpl,
+        irProviders: List<IrProvider>,
+        extensions: JvmGeneratorExtensions,
         backendExtension: JvmBackendExtension,
         notifyCodegenStart: () -> Unit = {}
     ) {
-        val irProviders = configureBuiltInsAndGenerateIrProvidersInFrontendIRMode(irModuleFragment, symbolTable, extensions)
         generateModule(
             state,
             JvmIrBackendInput(irModuleFragment, symbolTable, phaseConfig, irProviders, extensions, backendExtension, notifyCodegenStart)
-        )
-    }
-
-    fun configureBuiltInsAndGenerateIrProvidersInFrontendIRMode(
-        irModuleFragment: IrModuleFragment,
-        symbolTable: SymbolTable,
-        extensions: JvmGeneratorExtensionsImpl,
-    ): List<IrProvider> {
-        return generateTypicalIrProviderList(
-            irModuleFragment.descriptor, irModuleFragment.irBuiltins, symbolTable,
-            DescriptorByIdSignatureFinderImpl(irModuleFragment.descriptor, JvmDescriptorMangler(null)),
-            extensions = extensions
         )
     }
 }

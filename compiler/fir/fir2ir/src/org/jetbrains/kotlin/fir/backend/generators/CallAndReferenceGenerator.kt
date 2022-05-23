@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.fir.backend.generators
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
-import org.jetbrains.kotlin.backend.common.ir.isMethodOfAny
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
@@ -42,6 +42,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.isFunctionTypeOrSubtype
 import org.jetbrains.kotlin.ir.util.isInterface
+import org.jetbrains.kotlin.ir.util.isMethodOfAny
 import org.jetbrains.kotlin.psi2ir.generators.hasNoSideEffects
 import org.jetbrains.kotlin.psi2ir.generators.isUnchanging
 import org.jetbrains.kotlin.resolve.calls.NewCommonSuperTypeCalculator.commonSuperType
@@ -81,8 +82,10 @@ class CallAndReferenceGenerator(
         }
 
         val symbol = callableReferenceAccess.calleeReference.toSymbolForCall(
-            callableReferenceAccess.dispatchReceiver, session, classifierStorage, declarationStorage, conversionScope,
-            explicitReceiver = callableReferenceAccess.explicitReceiver, isDelegate = isDelegate
+            callableReferenceAccess.dispatchReceiver,
+            conversionScope,
+            explicitReceiver = callableReferenceAccess.explicitReceiver,
+            isDelegate = isDelegate
         )
         // val x by y ->
         //   val `x$delegate` = y
@@ -282,9 +285,6 @@ class CallAndReferenceGenerator(
             val calleeReference = qualifiedAccess.calleeReference
             val symbol = calleeReference.toSymbolForCall(
                 dispatchReceiver,
-                session,
-                classifierStorage,
-                declarationStorage,
                 conversionScope
             )
             return qualifiedAccess.convertWithOffsets { startOffset, endOffset ->
@@ -362,7 +362,7 @@ class CallAndReferenceGenerator(
             val type = irBuiltIns.unitType
             val calleeReference = variableAssignment.calleeReference
             val symbol = calleeReference.toSymbolForCall(
-                variableAssignment.dispatchReceiver, session, classifierStorage, declarationStorage, conversionScope, preferGetter = false
+                variableAssignment.dispatchReceiver, conversionScope, preferGetter = false
             )
             val origin = variableAssignment.getIrAssignmentOrigin()
             return variableAssignment.convertWithOffsets { startOffset, endOffset ->
@@ -529,7 +529,7 @@ class CallAndReferenceGenerator(
             if (classSymbol != null) {
                 IrGetObjectValueImpl(
                     startOffset, endOffset, irType,
-                    classSymbol.toSymbol(this.session, this.classifierStorage) as IrClassSymbol
+                    classSymbol.toSymbol() as IrClassSymbol
                 )
             } else {
                 IrErrorCallExpressionImpl(
@@ -555,11 +555,10 @@ class CallAndReferenceGenerator(
         statement: FirStatement?,
         annotationMode: Boolean
     ): IrExpression {
-        val qualifiedAccess = statement as? FirQualifiedAccess
         val call = statement as? FirCall
         return when (this) {
             is IrMemberAccessExpression<*> -> {
-                val contextReceiverCount = putContextReceiverArguments(qualifiedAccess)
+                val contextReceiverCount = putContextReceiverArguments(statement)
                 if (call == null) return this
                 val argumentsCount = call.arguments.size
                 if (argumentsCount <= valueArgumentsCount) {
@@ -624,8 +623,10 @@ class CallAndReferenceGenerator(
     }
 
     private fun IrMemberAccessExpression<*>.putContextReceiverArguments(statement: FirStatement?): Int {
-        val contextReceiverCount = (statement as? FirQualifiedAccess)?.contextReceiverArguments?.size ?: 0
-        if (statement is FirQualifiedAccess && contextReceiverCount > 0) {
+        if (statement !is FirContextReceiverArgumentListOwner) return 0
+
+        val contextReceiverCount = statement.contextReceiverArguments.size
+        if (contextReceiverCount > 0) {
             for (index in 0 until contextReceiverCount) {
                 putValueArgument(
                     index,

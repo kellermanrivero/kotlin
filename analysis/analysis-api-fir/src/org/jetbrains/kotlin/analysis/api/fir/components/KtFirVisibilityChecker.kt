@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirSymbol
 import org.jetbrains.kotlin.analysis.api.impl.barebone.parentsOfType
 import org.jetbrains.kotlin.analysis.api.symbols.KtFileSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithVisibility
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDesignation
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirSafe
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
@@ -29,7 +29,7 @@ import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 
 internal class KtFirVisibilityChecker(
     override val analysisSession: KtFirAnalysisSession,
-    override val token: ValidityToken
+    override val token: KtLifetimeToken
 ) : KtVisibilityChecker(), KtFirAnalysisSessionComponent {
 
     override fun isVisible(
@@ -44,13 +44,13 @@ internal class KtFirVisibilityChecker(
         val nonLocalContainingDeclaration = findContainingNonLocalDeclaration(position)
         val useSiteFirFile = useSiteFile.firSymbol.fir
         val containers = nonLocalContainingDeclaration
-            ?.getOrBuildFirSafe<FirCallableDeclaration>(analysisSession.firResolveState)
+            ?.getOrBuildFirSafe<FirCallableDeclaration>(analysisSession.firResolveSession)
             ?.collectDesignation()
             ?.path
             .orEmpty()
 
         val explicitDispatchReceiver = receiverExpression
-            ?.getOrBuildFirSafe<FirExpression>(analysisSession.firResolveState)
+            ?.getOrBuildFirSafe<FirExpression>(analysisSession.firResolveSession)
             ?.let { ExpressionReceiverValue(it) }
 
         val candidateFirSymbol = candidateSymbol.firSymbol.fir as FirMemberDeclaration

@@ -21,10 +21,10 @@ import org.jetbrains.kotlin.analysis.api.symbols.pointers.CanNotCreateSymbolPoin
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtPsiBasedSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.WrongSymbolForSamConstructor
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirModuleResolveState
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.containingClass
@@ -38,8 +38,8 @@ import org.jetbrains.kotlin.name.Name
 
 internal class KtFirFunctionSymbol(
     override val firSymbol: FirNamedFunctionSymbol,
-    override val resolveState: LLFirModuleResolveState,
-    override val token: ValidityToken,
+    override val firResolveSession: LLFirResolveSession,
+    override val token: KtLifetimeToken,
     private val builder: KtSymbolByFirBuilder
 ) : KtFunctionSymbol(), KtFirSymbol<FirNamedFunctionSymbol> {
     override val psi: PsiElement? by cached { firSymbol.findPsi() }
@@ -57,7 +57,7 @@ internal class KtFirFunctionSymbol(
     override val hasStableParameterNames: Boolean
         get() = withValidityAssertion { firSymbol.fir.getHasStableParameterNames(firSymbol.moduleData.session) }
 
-    override val annotationsList by cached { KtFirAnnotationListForDeclaration.create(firSymbol, resolveState.rootModuleSession, token) }
+    override val annotationsList by cached { KtFirAnnotationListForDeclaration.create(firSymbol, firResolveSession.useSiteFirSession, token) }
 
     override val isSuspend: Boolean get() = withValidityAssertion { firSymbol.isSuspend }
     override val isOverride: Boolean get() = withValidityAssertion { firSymbol.isOverride }

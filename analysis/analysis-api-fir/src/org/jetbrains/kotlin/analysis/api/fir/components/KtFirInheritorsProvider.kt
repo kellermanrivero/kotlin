@@ -11,14 +11,14 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirNamedClassOrObjectSymb
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KtEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtNamedClassOrObjectSymbol
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.declarations.getSealedClassInheritors
 
 internal class KtFirInheritorsProvider(
     override val analysisSession: KtFirAnalysisSession,
-    override val token: ValidityToken,
+    override val token: KtLifetimeToken,
 ) : KtInheritorsProvider(), KtFirAnalysisSessionComponent {
     override fun getInheritorsOfSealedClass(
         classSymbol: KtNamedClassOrObjectSymbol
@@ -26,7 +26,7 @@ internal class KtFirInheritorsProvider(
         require(classSymbol.modality == Modality.SEALED)
         require(classSymbol is KtFirNamedClassOrObjectSymbol)
 
-        val inheritorClassIds = classSymbol.firSymbol.fir.getSealedClassInheritors(analysisSession.rootModuleSession)
+        val inheritorClassIds = classSymbol.firSymbol.fir.getSealedClassInheritors(analysisSession.useSiteSession)
 
         with(analysisSession) {
             inheritorClassIds.mapNotNull { it.getCorrespondingToplevelClassOrObjectSymbol() as? KtNamedClassOrObjectSymbol }

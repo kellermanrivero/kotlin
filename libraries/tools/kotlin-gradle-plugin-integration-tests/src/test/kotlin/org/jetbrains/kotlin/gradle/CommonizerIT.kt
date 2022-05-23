@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.gradle
 
+import groovy.json.StringEscapeUtils
 import org.gradle.api.logging.LogLevel.INFO
 import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.kotlin.commonizer.CommonizerTarget
@@ -671,6 +672,29 @@ class CommonizerIT : BaseGradleIT() {
                 assertTasksSkipped(":cinteropSimpleTarget2")
                 assertTasksExecuted(":cinteropSimpleTarget1")
                 assertTasksExecuted(":commonizeCInterop")
+            }
+        }
+    }
+
+    @Test
+    fun `test KT-52243 cinterop caching`() {
+        with(preparedProject("commonizeCurlInterop")) {
+            val localBuildCacheDir = projectDir.resolve("local-build-cache-dir").also { assertTrue(it.mkdirs()) }
+            gradleSettingsScript().appendText("""
+                
+                buildCache {
+                    local {
+                        directory = "${StringEscapeUtils.escapeJava(localBuildCacheDir.absolutePath)}"
+                    }
+                }
+            """.trimIndent()
+            )
+            build(":commonize", options = defaultBuildOptions().copy(withBuildCache = true)) {
+                assertTasksExecuted(":cinteropCurlTargetA", ":cinteropCurlTargetB")
+            }
+            build(":clean") {}
+            build(":commonize", options = defaultBuildOptions().copy(withBuildCache = true)) {
+                assertTasksRetrievedFromCache(":cinteropCurlTargetA", ":cinteropCurlTargetB")
             }
         }
     }

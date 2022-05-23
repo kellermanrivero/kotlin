@@ -235,6 +235,7 @@ class BodyResolveContext(
                 holder.scopeSession
             )
             addReceiver(labelName, receiver, additionalLabelName)
+            (inferenceSession as? FirBuilderInferenceSession)?.addLambdaImplicitReceiver(receiver)
         }
 
         f()
@@ -805,7 +806,7 @@ class BodyResolveContext(
 
     @OptIn(PrivateForInline::class)
     fun storeCallableReferenceContext(callableReferenceAccess: FirCallableReferenceAccess) {
-        specialTowerDataContexts.storeCallableReferenceContext(callableReferenceAccess, towerDataContext)
+        specialTowerDataContexts.storeCallableReferenceContext(callableReferenceAccess, towerDataContext.createSnapshot())
     }
 
     @OptIn(PrivateForInline::class)

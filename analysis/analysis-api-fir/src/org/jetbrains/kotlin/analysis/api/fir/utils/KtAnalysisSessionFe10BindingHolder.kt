@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.utils
 
-import org.jetbrains.kotlin.analysis.api.InvalidWayOfUsingAnalysisSession
 import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSession
 import org.jetbrains.kotlin.analysis.api.fir.buildSymbol
@@ -13,9 +12,9 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.KtFirSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.pointers.createSignature
 import org.jetbrains.kotlin.analysis.api.symbols.KtClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtSymbol
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirModuleResolveState
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
@@ -29,7 +28,7 @@ class KtAnalysisSessionFe10BindingHolder private constructor(
 ) {
     val analysisSession: KtAnalysisSession get() = firAnalysisSession
 
-    val firResolveState: LLFirModuleResolveState get() = firAnalysisSession.firResolveState
+    val firResolveSession: LLFirResolveSession get() = firAnalysisSession.firResolveSession
 
     fun buildClassLikeSymbol(fir: FirClassLikeDeclaration): KtClassLikeSymbol =
         firAnalysisSession.firSymbolBuilder.classifierBuilder.buildClassLikeSymbol(fir.symbol)
@@ -46,10 +45,9 @@ class KtAnalysisSessionFe10BindingHolder private constructor(
     fun toSignature(ktSymbol: KtSymbol): IdSignature = (ktSymbol as KtFirSymbol<*>).firSymbol.createSignature()
 
     companion object {
-        @InvalidWayOfUsingAnalysisSession
-        fun create(firResolveState: LLFirModuleResolveState, token: ValidityToken, @Suppress("UNUSED_PARAMETER") ktElement: KtElement): KtAnalysisSessionFe10BindingHolder {
+        fun create(firResolveSession: LLFirResolveSession, token: KtLifetimeToken, @Suppress("UNUSED_PARAMETER") ktElement: KtElement): KtAnalysisSessionFe10BindingHolder {
             @Suppress("DEPRECATION")
-            val firAnalysisSession = KtFirAnalysisSession.createAnalysisSessionByResolveState(firResolveState, token)
+            val firAnalysisSession = KtFirAnalysisSession.createAnalysisSessionByFirResolveSession(firResolveSession, token)
             return KtAnalysisSessionFe10BindingHolder(firAnalysisSession)
         }
     }

@@ -116,16 +116,12 @@ internal class ClassMemberGenerator(
             if (firFunction is FirConstructor && irFunction is IrConstructor && !firFunction.isExpect) {
                 val body = factory.createBlockBody(startOffset, endOffset)
                 val delegatedConstructor = firFunction.delegatedConstructor
-                if (delegatedConstructor != null) {
-                    val irDelegatingConstructorCall = delegatedConstructor.toIrDelegatingConstructorCall()
-                    body.statements += irDelegatingConstructorCall
-                }
                 val irClass = parent as IrClass
-                if (delegatedConstructor?.isThis == false) {
-                    val instanceInitializerCall = IrInstanceInitializerCallImpl(
-                        startOffset, endOffset, irClass.symbol, irFunction.constructedClassType
-                    )
-                    body.statements += instanceInitializerCall
+                if (delegatedConstructor != null) {
+                    val irDelegatingConstructorCall = conversionScope.forDelegatingConstructorCall(irFunction, irClass) {
+                        delegatedConstructor.toIrDelegatingConstructorCall()
+                    }
+                    body.statements += irDelegatingConstructorCall
                 }
 
                 if (containingClass is FirRegularClass && containingClass.contextReceivers.isNotEmpty()) {
@@ -154,6 +150,13 @@ internal class ClassMemberGenerator(
                             )
                         )
                     }
+                }
+
+                if (delegatedConstructor?.isThis == false) {
+                    val instanceInitializerCall = IrInstanceInitializerCallImpl(
+                        startOffset, endOffset, irClass.symbol, irFunction.constructedClassType
+                    )
+                    body.statements += instanceInitializerCall
                 }
 
                 val regularBody = firFunction.body?.let { visitor.convertToIrBlockBody(it) }
@@ -192,9 +195,7 @@ internal class ClassMemberGenerator(
                 declarationStorage.leaveScope(irFunction)
             }
             if (irFunction is IrSimpleFunction && firFunction is FirSimpleFunction && containingClass != null) {
-                irFunction.overriddenSymbols = firFunction.generateOverriddenFunctionSymbols(
-                    containingClass, session, scopeSession, declarationStorage, fakeOverrideGenerator
-                )
+                irFunction.overriddenSymbols = firFunction.generateOverriddenFunctionSymbols(containingClass)
             }
         }
         return irFunction
@@ -206,9 +207,7 @@ internal class ClassMemberGenerator(
         val propertyType = property.returnTypeRef.toIrType()
         irProperty.initializeBackingField(property, initializerExpression = initializer ?: delegate)
         if (containingClass != null) {
-            irProperty.overriddenSymbols = property.generateOverriddenPropertySymbols(
-                containingClass, session, scopeSession, declarationStorage, fakeOverrideGenerator
-            )
+            irProperty.overriddenSymbols = property.generateOverriddenPropertySymbols(containingClass)
         }
         irProperty.getter?.setPropertyAccessorContent(
             property, property.getter, irProperty, propertyType,
@@ -307,9 +306,7 @@ internal class ClassMemberGenerator(
                 }
             }
             if (containingClass != null) {
-                this.overriddenSymbols = property.generateOverriddenAccessorSymbols(
-                    containingClass, isGetter, session, scopeSession, declarationStorage, fakeOverrideGenerator
-                )
+                this.overriddenSymbols = property.generateOverriddenAccessorSymbols(containingClass, isGetter)
             }
 
         }

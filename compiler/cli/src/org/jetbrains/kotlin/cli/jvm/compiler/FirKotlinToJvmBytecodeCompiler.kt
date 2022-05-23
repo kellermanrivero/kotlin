@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.cli.jvm.compiler
 import org.jetbrains.kotlin.analyzer.common.CommonPlatformAnalyzerServices
 import org.jetbrains.kotlin.asJava.FilteredJvmDiagnostics
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensionsImpl
+import org.jetbrains.kotlin.backend.jvm.JvmGeneratorExtensions
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.cli.common.CLICompiler
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.backend.Fir2IrResult
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
+import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.checkers.registerExtendedCommonCheckers
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
@@ -160,15 +161,15 @@ object FirKotlinToJvmBytecodeCompiler {
         performanceManager?.notifyGenerationStarted()
         performanceManager?.notifyIRTranslationStarted()
 
-        val extensions = JvmGeneratorExtensionsImpl(moduleConfiguration)
-        val fir2IrResult = firResult.session.convertToIr(firResult.scopeSession, firResult.fir, extensions, irGenerationExtensions)
+        val fir2IrExtensions = JvmFir2IrExtensions(moduleConfiguration)
+        val fir2IrResult = firResult.session.convertToIr(firResult.scopeSession, firResult.fir, fir2IrExtensions, irGenerationExtensions)
 
         performanceManager?.notifyIRTranslationFinished()
 
         val generationState = runBackend(
             allSources,
             fir2IrResult,
-            extensions,
+            fir2IrExtensions,
             firResult.session,
             diagnosticsReporter
         )
@@ -311,16 +312,15 @@ object FirKotlinToJvmBytecodeCompiler {
     private fun CompilationContext.runBackend(
         ktFiles: List<KtFile>,
         fir2IrResult: Fir2IrResult,
-        extensions: JvmGeneratorExtensionsImpl,
+        extensions: JvmGeneratorExtensions,
         session: FirSession,
         diagnosticsReporter: BaseDiagnosticsCollector
     ): GenerationState {
-        val (moduleFragment, symbolTable, components) = fir2IrResult
+        val (moduleFragment, components) = fir2IrResult
         val dummyBindingContext = NoScopeRecordCliBindingTrace().bindingContext
         val codegenFactory = JvmIrCodegenFactory(
             moduleConfiguration,
             moduleConfiguration.get(CLIConfigurationKeys.PHASE_CONFIG),
-            jvmGeneratorExtensions = extensions
         )
 
         val generationState = GenerationState.Builder(
@@ -344,7 +344,8 @@ object FirKotlinToJvmBytecodeCompiler {
         generationState.beforeCompile()
         generationState.oldBEInitTrace(ktFiles)
         codegenFactory.generateModuleInFrontendIRMode(
-            generationState, moduleFragment, symbolTable, extensions, FirJvmBackendExtension(session, components)
+            generationState, moduleFragment, components.symbolTable, components.irProviders,
+            extensions, FirJvmBackendExtension(session, components)
         ) {
             performanceManager?.notifyIRLoweringFinished()
             performanceManager?.notifyIRGenerationStarted()

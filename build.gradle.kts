@@ -133,7 +133,7 @@ rootProject.apply {
 IdeVersionConfigurator.setCurrentIde(project)
 
 if (!project.hasProperty("versions.kotlin-native")) {
-    extra["versions.kotlin-native"] = "1.7.20-dev-260"
+    extra["versions.kotlin-native"] = "1.7.20-dev-1094"
 }
 
 val useJvmFir by extra(project.kotlinBuildProperties.useFir)
@@ -380,6 +380,10 @@ val projectsWithDisabledFirBootstrap = coreLibProjects + listOf(
     ":wasm:wasm.ir"
 )
 
+val projectsWithEnabledContextReceivers = listOf(
+    ":compiler:fir:fir2ir"
+)
+
 val gradlePluginProjects = listOf(
     ":kotlin-gradle-plugin",
     ":kotlin-gradle-plugin-api",
@@ -534,7 +538,8 @@ allprojects {
         kotlinOptions {
             freeCompilerArgs = commonCompilerArgs + jvmCompilerArgs
 
-            if (useJvmFir && this@allprojects.path !in projectsWithDisabledFirBootstrap) {
+            val moduleName = this@allprojects.path
+            if (useJvmFir && moduleName !in projectsWithDisabledFirBootstrap) {
                 freeCompilerArgs += "-Xuse-fir"
                 freeCompilerArgs += "-Xabi-stability=stable"
                 if (useFirLT) {
@@ -546,6 +551,11 @@ allprojects {
             }
             if (renderDiagnosticNames) {
                 freeCompilerArgs += "-Xrender-internal-diagnostic-names"
+            }
+
+            if (moduleName in projectsWithEnabledContextReceivers) {
+                freeCompilerArgs += "-Xcontext-receivers"
+                freeCompilerArgs += "-Xdont-poison-binaries-with-prerelease"
             }
         }
     }
@@ -699,10 +709,11 @@ tasks {
             ":kotlin-test:kotlin-test-js-ir:kotlin-test-js-ir-it".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
             ":kotlinx-metadata-jvm",
             ":tools:binary-compatibility-validator",
-            ":kotlin-stdlib-wasm",
         )).forEach {
             dependsOn("$it:check")
         }
+        // Temporary disabled while bootstrapping is in progress
+        // dependsOn(":kotlin-stdlib-wasm:runWasmStdLibTestsWithD8") //Instead of :kotlin-stdlib-wasm:check
     }
 
     register("gradlePluginTest") {
@@ -1009,13 +1020,14 @@ configure<IdeaModel> {
     }
 }
 
-val disableVerificationTasks = providers.systemProperty("disable.verification.tasks")
+val disableVerificationTasks = providers.gradleProperty("kotlin.build.disable.verification.tasks")
     .forUseAtConfigurationTime().orNull?.toBoolean() ?: false
 if (disableVerificationTasks) {
+    logger.info("Verification tasks are disabled because `kotlin.build.disable.verification.tasks` is true")
     gradle.taskGraph.whenReady {
         allTasks.forEach {
             if (it is VerificationTask) {
-                logger.info("DISABLED: '$it'")
+                logger.info("Task ${it.path} is disabled because `kotlin.build.disable.verification.tasks` is true")
                 it.enabled = false
             }
         }
@@ -1024,7 +1036,6 @@ if (disableVerificationTasks) {
 
 plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class) {
     extensions.configure(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension::class.java) {
-        nodeVersion = "16.13.0"
         npmInstallTaskProvider?.configure {
             args += listOf("--network-concurrency", "1", "--mutex", "network")
         } ?: error("kotlinNpmInstall task should exist inside NodeJsRootExtension")

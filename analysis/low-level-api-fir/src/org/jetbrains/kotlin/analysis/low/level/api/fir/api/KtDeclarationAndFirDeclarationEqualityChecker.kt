@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitNullableAnyTypeRef
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi.KtCallableDeclaration
+import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtFunction
 import org.jetbrains.kotlin.psi.KtTypeReference
 import org.jetbrains.kotlin.types.Variance
@@ -31,23 +32,27 @@ import org.jetbrains.kotlin.utils.addIfNotNull
 // TODO replace with structural type comparison?
 object KtDeclarationAndFirDeclarationEqualityChecker {
     fun representsTheSameDeclaration(psi: KtCallableDeclaration, fir: FirCallableDeclaration): Boolean {
+        if (!receiverTypeMatch(psi, fir)) return false
+        if (!returnTypesMatch(psi, fir)) return false
+        if (!typeParametersMatch(psi, fir)) return false
+        if (fir is FirFunction && !valueParametersMatch(psi, fir)) return false
+        return true
+    }
+
+    private fun receiverTypeMatch(psi: KtCallableDeclaration, fir: FirCallableDeclaration): Boolean {
         if ((fir.receiverTypeRef != null) != (psi.receiverTypeReference != null)) return false
-        if (fir.receiverTypeRef != null
-            && !isTheSameTypes(
-                psi.receiverTypeReference!!,
-                fir.receiverTypeRef!!,
-                isVararg = false
-            )
-        ) {
+        if (fir.receiverTypeRef != null && !isTheSameTypes(psi.receiverTypeReference!!, fir.receiverTypeRef!!, isVararg = false)) {
             return false
-        }
-        if (fir is FirFunction) {
-            if (!typeParametersMatch(fir, psi) || !valueParametersMatch(fir, psi)) return false
         }
         return true
     }
 
-    private fun typeParametersMatch(firFunction: FirCallableDeclaration, psiFunction: KtCallableDeclaration): Boolean {
+    private fun returnTypesMatch(psi: KtCallableDeclaration, fir: FirCallableDeclaration): Boolean {
+        if (psi is KtConstructor<*>) return true
+        return isTheSameTypes(psi.typeReference!!, fir.returnTypeRef, isVararg = false)
+    }
+
+    private fun typeParametersMatch(psiFunction: KtCallableDeclaration, firFunction: FirCallableDeclaration): Boolean {
         if (firFunction.typeParameters.size != psiFunction.typeParameters.size) return false
         val boundsByName = psiFunction.typeConstraints.groupBy { it.subjectTypeParameterName?.getReferencedName() }
         firFunction.typeParameters.zip(psiFunction.typeParameters) { expectedTypeParameter, candidateTypeParameter ->
@@ -73,7 +78,7 @@ object KtDeclarationAndFirDeclarationEqualityChecker {
         return true
     }
 
-    private fun valueParametersMatch(firFunction: FirFunction, psiFunction: KtCallableDeclaration): Boolean {
+    private fun valueParametersMatch(psiFunction: KtCallableDeclaration, firFunction: FirFunction): Boolean {
         if (firFunction.valueParameters.size != psiFunction.valueParameters.size) return false
         firFunction.valueParameters.zip(psiFunction.valueParameters) { expectedParameter, candidateParameter ->
             if (expectedParameter.name.toString() != candidateParameter.name) return false
@@ -239,7 +244,11 @@ object KtDeclarationAndFirDeclarationEqualityChecker {
             shouldNotBeCalled()
         }
 
-        override fun getNestedClassifierScope(klass: FirClass, useSiteSession: FirSession, scopeSession: ScopeSession): FirContainingNamesAwareScope? {
+        override fun getNestedClassifierScope(
+            klass: FirClass,
+            useSiteSession: FirSession,
+            scopeSession: ScopeSession
+        ): FirContainingNamesAwareScope? {
             shouldNotBeCalled()
         }
 

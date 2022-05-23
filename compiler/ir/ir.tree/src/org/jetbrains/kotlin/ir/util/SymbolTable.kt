@@ -459,6 +459,10 @@ open class SymbolTable(
         )
     }
 
+    fun declareClassWithSignature(sig: IdSignature, symbol: IrClassSymbol) {
+        classSymbolTable.set(sig, symbol)
+    }
+
     fun declareClassIfNotExists(descriptor: ClassDescriptor, classFactory: (IrClassSymbol) -> IrClass): IrClass =
         classSymbolTable.declareIfNotExists(descriptor, { signature -> createClassSymbol(descriptor, signature) }, classFactory)
 
@@ -679,6 +683,10 @@ open class SymbolTable(
         }
     }
 
+    fun declareFieldWithSignature(sig: IdSignature, symbol: IrFieldSymbol) {
+        fieldSymbolTable.set(sig, symbol)
+    }
+
     override fun referenceField(descriptor: PropertyDescriptor): IrFieldSymbol =
         fieldSymbolTable.referenced(descriptor) { signature -> createFieldSymbol(descriptor, signature) }
 
@@ -754,6 +762,10 @@ open class SymbolTable(
                 declare(descriptor, { IrPropertySymbolImpl(descriptor) }, factory)
             }
         }
+    }
+
+    fun declarePropertyWithSignature(sig: IdSignature, symbol: IrPropertySymbol) {
+        propertySymbolTable.set(sig, symbol)
     }
 
     override fun referenceProperty(descriptor: PropertyDescriptor): IrPropertySymbol =
@@ -844,6 +856,10 @@ open class SymbolTable(
                 declare(descriptor!!, { IrSimpleFunctionSymbolImpl(descriptor) }, functionFactory)
             }
         }
+    }
+
+    fun declareSimpleFunctionWithSignature(sig: IdSignature, symbol: IrSimpleFunctionSymbol) {
+        simpleFunctionSymbolTable.set(sig, symbol)
     }
 
     override fun referenceSimpleFunction(descriptor: FunctionDescriptor): IrSimpleFunctionSymbol =

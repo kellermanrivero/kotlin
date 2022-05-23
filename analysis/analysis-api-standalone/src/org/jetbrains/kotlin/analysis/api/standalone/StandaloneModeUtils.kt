@@ -9,12 +9,11 @@ import com.intellij.mock.MockApplication
 import com.intellij.mock.MockProject
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.StandardFileSystems
-import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
 import com.intellij.psi.PsiElementFinder
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.GlobalSearchScope
-import org.jetbrains.kotlin.analysis.api.InvalidWayOfUsingAnalysisSession
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSessionProvider
+import org.jetbrains.kotlin.analysis.api.KtAnalysisApiInternals
+import org.jetbrains.kotlin.analysis.api.session.KtAnalysisSessionProvider
 import org.jetbrains.kotlin.analysis.api.fir.KtFirAnalysisSessionProvider
 import org.jetbrains.kotlin.analysis.api.impl.base.references.HLApiReferenceProviderService
 import org.jetbrains.kotlin.analysis.decompiled.light.classes.ClsJavaStubByVirtualFileCache
@@ -74,7 +73,7 @@ public fun configureApplicationEnvironment(app: MockApplication) {
  *   * [ClsJavaStubByVirtualFileCache]
  *   * [KotlinModificationTrackerFactory]
  *   * [KotlinAnnotationsResolverFactory]
- *   * [LLFirResolveStateService]
+ *   * [LLfirResolveSessionService]
  *   * [FirSealedClassInheritorsProcessorFactory]
  *   * [KtModuleScopeProvider]
  *   * [ProjectStructureProvider]
@@ -86,18 +85,14 @@ public fun configureApplicationEnvironment(app: MockApplication) {
  *    * given [ktFiles] as Kotlin sources
  *    * other Java sources in [compilerConfig] (set via [addJavaSourceRoots])
  *    * JVM class paths in [compilerConfig] (set via [addJvmClasspathRoots]) as library.
- *
- *  To make sure the same instance of [CoreJarFileSystem] is used (and thus file lookup in jars is cached),
- *    pass [jarFileSystem] from [KotlinCoreEnvironment] if available.
  */
 public fun configureProjectEnvironment(
     project: MockProject,
     compilerConfig: CompilerConfiguration,
     packagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
-    jarFileSystem: CoreJarFileSystem = CoreJarFileSystem(),
 ) {
     val ktFiles = getKtFilesFromPaths(project, getSourceFilePaths(compilerConfig))
-    configureProjectEnvironment(project, compilerConfig, ktFiles, packagePartProvider, jarFileSystem)
+    configureProjectEnvironment(project, compilerConfig, ktFiles, packagePartProvider)
 }
 
 private fun getSourceFilePaths(
@@ -139,7 +134,6 @@ internal fun configureProjectEnvironment(
     compilerConfig: CompilerConfiguration,
     ktFiles: List<KtFile>,
     packagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
-    jarFileSystem: CoreJarFileSystem = CoreJarFileSystem(),
 ) {
     reRegisterJavaElementFinder(project)
 
@@ -161,7 +155,7 @@ internal fun configureProjectEnvironment(
         KotlinStaticAnnotationsResolverFactory(ktFiles)
     )
 
-    RegisterComponentService.registerLLFirResolveStateService(project)
+    RegisterComponentService.registerLLFirResolveSessionService(project)
     project.picoContainer.registerComponentInstance(
         FirSealedClassInheritorsProcessorFactory::class.qualifiedName,
         object : FirSealedClassInheritorsProcessorFactory() {
@@ -181,7 +175,6 @@ internal fun configureProjectEnvironment(
             compilerConfig,
             project,
             ktFiles,
-            jarFileSystem
         )
     )
     project.picoContainer.registerComponentInstance(
@@ -202,7 +195,7 @@ internal fun configureProjectEnvironment(
     )
 }
 
-@OptIn(InvalidWayOfUsingAnalysisSession::class)
+@OptIn(KtAnalysisApiInternals::class)
 private fun reRegisterJavaElementFinder(project: Project) {
     PsiElementFinder.EP.getPoint(project).unregisterExtension(JavaElementFinder::class.java)
     with(project as MockProject) {

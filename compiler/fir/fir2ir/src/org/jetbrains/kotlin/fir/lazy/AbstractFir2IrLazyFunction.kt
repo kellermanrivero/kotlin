@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.fir.backend.declareThisReceiverParameter
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
 import org.jetbrains.kotlin.fir.declarations.utils.*
-import org.jetbrains.kotlin.fir.symbols.Fir2IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.lazy.IrLazyFunctionBase
@@ -21,9 +20,10 @@ import org.jetbrains.kotlin.ir.declarations.lazy.lazyVar
 import org.jetbrains.kotlin.ir.expressions.IrBody
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.util.DeclarationStubGenerator
-import org.jetbrains.kotlin.ir.util.TypeTranslator
+import org.jetbrains.kotlin.ir.util.DeserializableClass
+import org.jetbrains.kotlin.ir.util.isFacadeClass
 import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.resolve.annotations.JVM_STATIC_ANNOTATION_FQ_NAME
@@ -34,9 +34,10 @@ abstract class AbstractFir2IrLazyFunction<F : FirCallableDeclaration>(
     override val startOffset: Int,
     override val endOffset: Int,
     override var origin: IrDeclarationOrigin,
-    override val symbol: Fir2IrSimpleFunctionSymbol,
+    override val symbol: IrSimpleFunctionSymbol,
     override val isFakeOverride: Boolean
-) : IrSimpleFunction(), AbstractFir2IrLazyDeclaration<F, IrSimpleFunction>, IrLazyFunctionBase, Fir2IrComponents by components {
+) : IrSimpleFunction(), AbstractFir2IrLazyDeclaration<F>, Fir2IrTypeParametersContainer, IrLazyFunctionBase,
+    Fir2IrComponents by components {
 
     override lateinit var typeParameters: List<IrTypeParameter>
     override lateinit var parent: IrDeclarationParent
@@ -66,9 +67,9 @@ abstract class AbstractFir2IrLazyFunction<F : FirCallableDeclaration>(
     override val isExpect: Boolean
         get() = fir.isExpect
 
-    override var body: IrBody?
-        get() = null
-        set(_) = error("We should never need to store body of external functions.")
+    override var body: IrBody? by lazyVar(lock) {
+        if (tryLoadIr()) body else null
+    }
 
     override var visibility: DescriptorVisibility by lazyVar(lock) {
         components.visibilityConverter.convertToDescriptorVisibility(fir.visibility)
@@ -89,27 +90,37 @@ abstract class AbstractFir2IrLazyFunction<F : FirCallableDeclaration>(
         containingClass: IrClass,
         staticOwner: FirCallableDeclaration
     ): Boolean {
-        return !staticOwner.isStatic &&
+        return !staticOwner.isStatic && !containingClass.isFacadeClass &&
                 (!containingClass.isObject || containingClass.isCompanion || !staticOwner.hasAnnotation(JVM_STATIC_CLASS_ID))
     }
 
     protected fun createThisReceiverParameter(thisType: IrType): IrValueParameter {
         declarationStorage.enterScope(this)
-        return declareThisReceiverParameter(symbolTable, thisType, origin).apply {
+        return declareThisReceiverParameter(thisType, origin).apply {
             declarationStorage.leaveScope(this@AbstractFir2IrLazyFunction)
         }
     }
-
-    override val stubGenerator: DeclarationStubGenerator
-        get() = error("Should not be called")
-    override val typeTranslator: TypeTranslator
-        get() = error("Should not be called")
 
     override val factory: IrFactory
         get() = super<AbstractFir2IrLazyDeclaration>.factory
 
     override fun createLazyAnnotations(): ReadWriteProperty<Any?, List<IrConstructorCall>> {
         return super<AbstractFir2IrLazyDeclaration>.createLazyAnnotations()
+    }
+
+    private fun tryLoadIr(): Boolean {
+        if (!isInline || isFakeOverride) return false
+        if (!extensions.irNeedsDeserialization) return false
+        val toplevel = getToplevel()
+        return (toplevel as? DeserializableClass)?.loadIr() ?: false
+    }
+
+    private fun getToplevel(): IrDeclaration {
+        var current: IrDeclaration = this
+        while (current.parent !is IrPackageFragment) {
+            current = current.parent as IrDeclaration
+        }
+        return current
     }
 
     companion object {

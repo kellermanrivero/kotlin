@@ -6,9 +6,6 @@
 package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
-import org.jetbrains.kotlin.backend.common.ir.copyParameterDeclarationsFrom
-import org.jetbrains.kotlin.backend.common.ir.passTypeArgumentsFrom
-import org.jetbrains.kotlin.backend.common.ir.remapTypeParameters
 import org.jetbrains.kotlin.backend.common.lower.VariableRemapper
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irBlockBody
@@ -66,7 +63,6 @@ class ExportedDefaultParameterStub(val context: JsIrBackendContext) : Declaratio
                     variables[valueParameter] = it
                 }
             }
-
         }
 
         if (variables.isNotEmpty()) {
@@ -79,7 +75,13 @@ class ExportedDefaultParameterStub(val context: JsIrBackendContext) : Declaratio
         }
 
 
-        return this
+        return also {
+            valueParameters.forEach {
+                if (it.defaultValue != null) {
+                    it.origin = JsLoweredDeclarationOrigin.JS_SHADOWED_DEFAULT_PARAMETER
+                }
+            }
+        }
     }
 
     override fun transformFlat(declaration: IrDeclaration): List<IrDeclaration>? {
@@ -113,8 +115,12 @@ class ExportedDefaultParameterStub(val context: JsIrBackendContext) : Declaratio
         exportedDefaultStubFun.copyParameterDeclarationsFrom(declaration)
         exportedDefaultStubFun.returnType = declaration.returnType.remapTypeParameters(declaration, exportedDefaultStubFun)
         exportedDefaultStubFun.valueParameters.forEach {
+            if (it.defaultValue != null) {
+                it.origin = JsLoweredDeclarationOrigin.JS_SHADOWED_DEFAULT_PARAMETER
+            }
+
             it.defaultValue = null
-            it.origin = JsLoweredDeclarationOrigin.JS_SHADOWED_DEFAULT_PARAMETER
+
         }
 
         declaration.origin = JsLoweredDeclarationOrigin.JS_SHADOWED_EXPORT

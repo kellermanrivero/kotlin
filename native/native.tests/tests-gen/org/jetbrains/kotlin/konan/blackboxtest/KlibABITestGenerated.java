@@ -7,8 +7,6 @@ package org.jetbrains.kotlin.konan.blackboxtest;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
-import org.jetbrains.kotlin.konan.blackboxtest.support.EnforcedProperty;
-import org.jetbrains.kotlin.konan.blackboxtest.support.ClassLevelProperty;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,11 +18,34 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("compiler/testData/klibABI")
 @TestDataPath("$PROJECT_ROOT")
-@EnforcedProperty(property = ClassLevelProperty.CACHE_MODE, propertyValue = "NO")
 public class KlibABITestGenerated extends AbstractNativeKlibABITest {
     @Test
     public void testAllFilesPresentInKlibABI() throws Exception {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/klibABI"), Pattern.compile("^([^_](.+))$"), null, false);
+    }
+
+    @Test
+    @TestMetadata("removeAbstractFunctionFromAbstractClass")
+    public void testRemoveAbstractFunctionFromAbstractClass() throws Exception {
+        runTest("compiler/testData/klibABI/removeAbstractFunctionFromAbstractClass/");
+    }
+
+    @Test
+    @TestMetadata("removeAbstractFunctionFromInterface")
+    public void testRemoveAbstractFunctionFromInterface() throws Exception {
+        runTest("compiler/testData/klibABI/removeAbstractFunctionFromInterface/");
+    }
+
+    @Test
+    @TestMetadata("removeAbstractPropertyFromAbstractClass")
+    public void testRemoveAbstractPropertyFromAbstractClass() throws Exception {
+        runTest("compiler/testData/klibABI/removeAbstractPropertyFromAbstractClass/");
+    }
+
+    @Test
+    @TestMetadata("removeAbstractPropertyFromInterface")
+    public void testRemoveAbstractPropertyFromInterface() throws Exception {
+        runTest("compiler/testData/klibABI/removeAbstractPropertyFromInterface/");
     }
 
     @Test
@@ -55,5 +76,11 @@ public class KlibABITestGenerated extends AbstractNativeKlibABITest {
     @TestMetadata("removeFunction")
     public void testRemoveFunction() throws Exception {
         runTest("compiler/testData/klibABI/removeFunction/");
+    }
+
+    @Test
+    @TestMetadata("removeProperty")
+    public void testRemoveProperty() throws Exception {
+        runTest("compiler/testData/klibABI/removeProperty/");
     }
 }

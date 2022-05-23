@@ -14,9 +14,8 @@ internal const val TYPE_INFO_TYPE_PACKAGE_NAME_PRT_OFFSET = TYPE_INFO_TYPE_PACKA
 internal const val TYPE_INFO_TYPE_SIMPLE_NAME_LENGTH_OFFSET = TYPE_INFO_TYPE_PACKAGE_NAME_PRT_OFFSET + TYPE_INFO_ELEMENT_SIZE
 internal const val TYPE_INFO_TYPE_SIMPLE_NAME_PRT_OFFSET = TYPE_INFO_TYPE_SIMPLE_NAME_LENGTH_OFFSET + TYPE_INFO_ELEMENT_SIZE
 internal const val TYPE_INFO_SUPER_TYPE_OFFSET = TYPE_INFO_TYPE_SIMPLE_NAME_PRT_OFFSET + TYPE_INFO_ELEMENT_SIZE
-internal const val TYPE_INFO_ITABLE_PTR_OFFSET = TYPE_INFO_SUPER_TYPE_OFFSET + TYPE_INFO_ELEMENT_SIZE
-internal const val TYPE_INFO_VTABLE_LENGTH_OFFSET = TYPE_INFO_ITABLE_PTR_OFFSET + TYPE_INFO_ELEMENT_SIZE
-internal const val TYPE_INFO_VTABLE_OFFSET = TYPE_INFO_VTABLE_LENGTH_OFFSET + TYPE_INFO_ELEMENT_SIZE
+internal const val TYPE_INFO_ITABLE_SIZE_OFFSET = TYPE_INFO_SUPER_TYPE_OFFSET + TYPE_INFO_ELEMENT_SIZE
+internal const val TYPE_INFO_ITABLE_OFFSET = TYPE_INFO_ITABLE_SIZE_OFFSET + TYPE_INFO_ELEMENT_SIZE
 
 internal class TypeInfoData(val typeId: Int, val isInterface: Boolean, val packageName: String, val typeName: String)
 
@@ -32,6 +31,43 @@ internal fun getTypeInfoTypeDataByPtr(typeInfoPtr: Int): TypeInfoData {
 
 internal fun getSuperTypeId(typeInfoPtr: Int): Int =
     wasm_i32_load(typeInfoPtr + TYPE_INFO_SUPER_TYPE_OFFSET)
+
+internal fun isInterfaceById(obj: Any, interfaceId: Int): Boolean {
+    val interfaceListSize = wasm_i32_load(obj.typeInfo + TYPE_INFO_ITABLE_SIZE_OFFSET)
+    val interfaceListPtr = obj.typeInfo + TYPE_INFO_ITABLE_OFFSET
+
+    var interfaceSlot = 0
+    while (interfaceSlot < interfaceListSize) {
+        val supportedInterface = wasm_i32_load(interfaceListPtr + interfaceSlot * TYPE_INFO_ELEMENT_SIZE)
+        if (supportedInterface == interfaceId) {
+            return true
+        }
+        interfaceSlot++
+    }
+    return false
+}
+
+@ExcludedFromCodegen
+internal fun <T> wasmIsInterface(obj: Any): Boolean =
+    implementedAsIntrinsic
+
+@ExcludedFromCodegen
+internal fun <T> wasmClassId(): Int =
+    implementedAsIntrinsic
+
+@ExcludedFromCodegen
+internal fun <T> wasmInterfaceId(): Int =
+    implementedAsIntrinsic
+
+@ExcludedFromCodegen
+internal fun <T> wasmGetTypeInfoData(): TypeInfoData =
+    implementedAsIntrinsic
+
+
+//REMOVE AFTER COMPILER BOOTSTRAP
+internal const val TYPE_INFO_ITABLE_PTR_OFFSET = TYPE_INFO_SUPER_TYPE_OFFSET + TYPE_INFO_ELEMENT_SIZE
+internal const val TYPE_INFO_VTABLE_LENGTH_OFFSET = TYPE_INFO_ITABLE_PTR_OFFSET + TYPE_INFO_ELEMENT_SIZE
+internal const val TYPE_INFO_VTABLE_OFFSET = TYPE_INFO_VTABLE_LENGTH_OFFSET + TYPE_INFO_ELEMENT_SIZE
 
 internal fun getVtablePtr(obj: Any): Int =
     obj.typeInfo + TYPE_INFO_VTABLE_OFFSET
@@ -72,15 +108,3 @@ internal fun getInterfaceImplId(obj: Any, interfaceId: Int): Int {
 internal fun isInterface(obj: Any, interfaceId: Int): Boolean {
     return getInterfaceImplId(obj, interfaceId) != -1
 }
-
-@ExcludedFromCodegen
-internal fun <T> wasmClassId(): Int =
-    implementedAsIntrinsic
-
-@ExcludedFromCodegen
-internal fun <T> wasmInterfaceId(): Int =
-    implementedAsIntrinsic
-
-@ExcludedFromCodegen
-internal fun <T> wasmGetTypeInfoData(): TypeInfoData =
-    implementedAsIntrinsic

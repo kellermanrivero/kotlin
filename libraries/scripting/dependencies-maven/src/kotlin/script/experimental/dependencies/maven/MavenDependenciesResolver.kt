@@ -5,14 +5,13 @@
 
 package kotlin.script.experimental.dependencies.maven
 
+import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.eclipse.aether.repository.RemoteRepository
 import org.eclipse.aether.resolution.ArtifactResolutionException
-import org.eclipse.aether.resolution.DependencyResolutionException
 import org.eclipse.aether.util.artifact.JavaScopes
 import org.eclipse.aether.util.repository.AuthenticationBuilder
 import java.io.File
-import java.util.*
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.dependencies.ExternalDependenciesResolver
 import kotlin.script.experimental.dependencies.RepositoryCoordinates
@@ -41,9 +40,6 @@ class MavenDependenciesResolver : ExternalDependenciesResolver {
         return repositoryCoordinates.toRepositoryUrlOrNull() != null
     }
 
-    // TODO: make robust
-    val localRepo = File(File(System.getProperty("user.home")!!, ".m2"), "repository")
-
     val repos: ArrayList<RemoteRepository> = arrayListOf()
 
     private fun remoteRepositories() = if (repos.isEmpty()) arrayListOf(mavenCentral) else repos
@@ -63,13 +59,15 @@ class MavenDependenciesResolver : ExternalDependenciesResolver {
         return try {
             val dependencyScopes = options.dependencyScopes ?: listOf(JavaScopes.COMPILE, JavaScopes.RUNTIME)
             val transitive = options.transitive ?: true
+            val classifier = options.classifier
+            val extension = options.extension
             val deps = AetherResolveSession(
-                localRepo, remoteRepositories()
+                null, remoteRepositories()
             ).resolve(
-                artifactId, dependencyScopes.joinToString(","), transitive, null
+                artifactId, dependencyScopes.joinToString(","), transitive, null, classifier, extension
             )
             ResultWithDiagnostics.Success(deps.map { it.file })
-        } catch (e: DependencyResolutionException) {
+        } catch (e: RepositoryException) {
             makeResolveFailureResult(e, sourceCodeLocation)
         }
     }
@@ -160,7 +158,7 @@ class MavenDependenciesResolver : ExternalDependenciesResolver {
         private val FORBIDDEN_CHARS = Regex("[/\\\\:<>\"|?*]")
 
         private fun makeResolveFailureResult(
-            exception: DependencyResolutionException,
+            exception: Throwable,
             location: SourceCode.LocationWithId?
         ): ResultWithDiagnostics.Failure {
             val allCauses = generateSequence(exception) { e: Throwable -> e.cause }.toList()
@@ -174,7 +172,7 @@ class MavenDependenciesResolver : ExternalDependenciesResolver {
                 }
             }
 
-            return makeResolveFailureResult(message, location)
+            return makeResolveFailureResult(listOf(message), location, exception)
         }
     }
 }

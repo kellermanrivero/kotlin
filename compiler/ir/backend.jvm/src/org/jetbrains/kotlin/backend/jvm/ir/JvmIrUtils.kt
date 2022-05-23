@@ -6,8 +6,6 @@
 package org.jetbrains.kotlin.backend.jvm.ir
 
 import com.intellij.psi.PsiElement
-import org.jetbrains.kotlin.backend.common.ir.ir2string
-import org.jetbrains.kotlin.backend.common.ir.isMethodOfAny
 import org.jetbrains.kotlin.backend.common.lower.at
 import org.jetbrains.kotlin.backend.common.lower.irNot
 import org.jetbrains.kotlin.backend.jvm.CachedFieldsForObjectInstances
@@ -368,7 +366,7 @@ fun IrBuilderWithScope.kClassReference(classType: IrType): IrClassReference =
     )
 
 fun JvmIrBuilder.kClassToJavaClass(kClassReference: IrExpression): IrCall =
-    irGet(irSymbols.javaLangClass.starProjectedType, null, irSymbols.kClassJava.owner.getter!!.symbol).apply {
+    irGet(irSymbols.javaLangClass.starProjectedType, null, irSymbols.kClassJavaPropertyGetter.symbol).apply {
         extensionReceiver = kClassReference
     }
 

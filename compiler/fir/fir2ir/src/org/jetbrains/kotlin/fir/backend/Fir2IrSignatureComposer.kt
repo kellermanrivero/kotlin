@@ -7,10 +7,25 @@ package org.jetbrains.kotlin.fir.backend
 
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirProperty
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
+import org.jetbrains.kotlin.fir.signaturer.FirMangler
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.ir.util.IdSignature
 
 interface Fir2IrSignatureComposer {
-    fun composeSignature(declaration: FirDeclaration, containingClass: ConeClassLikeLookupTag? = null): IdSignature?
-    fun composeAccessorSignature(property: FirProperty, isSetter: Boolean, containingClass: ConeClassLikeLookupTag? = null): IdSignature?
+    val mangler: FirMangler
+    fun composeSignature(
+        declaration: FirDeclaration,
+        containingClass: ConeClassLikeLookupTag? = null,
+        forceTopLevelPrivate: Boolean = false
+    ): IdSignature?
+
+    fun composeAccessorSignature(
+        property: FirProperty,
+        isSetter: Boolean,
+        containingClass: ConeClassLikeLookupTag? = null,
+        forceTopLevelPrivate: Boolean = false
+    ): IdSignature?
+    fun composeTypeParameterSignature(typeParameter: FirTypeParameter, index: Int, containerSignature: IdSignature?): IdSignature?
+    fun withFileSignature(sig: IdSignature.FileSignature, body: () -> Unit)
 }

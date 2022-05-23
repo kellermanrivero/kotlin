@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.analysis.project.structure.impl
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
 import com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.analysis.project.structure.KtBinaryModule
 import org.jetbrains.kotlin.analysis.project.structure.KtLibraryModule
 import org.jetbrains.kotlin.analysis.project.structure.KtModule
 import org.jetbrains.kotlin.analysis.project.structure.ProjectStructureProvider
@@ -18,11 +18,10 @@ internal class KtModuleProviderByCompilerConfiguration(
     compilerConfig: CompilerConfiguration,
     project: Project,
     ktFiles: List<KtFile>,
-    jarFileSystem: CoreJarFileSystem,
 ) : ProjectStructureProvider() {
-    private val sourceModule = KtSourceModuleByCompilerConfiguration(compilerConfig, project, ktFiles, jarFileSystem)
+    private val sourceModule = KtSourceModuleByCompilerConfiguration(compilerConfig, project, ktFiles)
 
-    private val libraryModules: Collection<KtLibraryModule> by lazy {
+    private val binaryModules: Collection<KtBinaryModule> by lazy {
         sourceModule.directRegularDependencies
     }
 
@@ -36,8 +35,8 @@ internal class KtModuleProviderByCompilerConfiguration(
         }
     }
 
-    override fun getKtLibraryModules(): Collection<KtLibraryModule> {
-        return libraryModules
+    override fun getKtBinaryModules(): Collection<KtBinaryModule> {
+        return binaryModules
     }
 
     override fun getStdlibWithBuiltinsModule(module: KtModule): KtLibraryModule? {

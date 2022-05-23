@@ -14,12 +14,13 @@ import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.library.IrLibrary
 import org.jetbrains.kotlin.library.KotlinAbiVersion
 
-internal fun IrSymbol.kind(): BinarySymbolData.SymbolKind {
+fun IrSymbol.kind(): BinarySymbolData.SymbolKind {
     return when (this) {
         is IrClassSymbol -> BinarySymbolData.SymbolKind.CLASS_SYMBOL
         is IrConstructorSymbol -> BinarySymbolData.SymbolKind.CONSTRUCTOR_SYMBOL
         is IrSimpleFunctionSymbol -> BinarySymbolData.SymbolKind.FUNCTION_SYMBOL
         is IrPropertySymbol -> BinarySymbolData.SymbolKind.PROPERTY_SYMBOL
+        is IrFieldSymbol -> BinarySymbolData.SymbolKind.FIELD_SYMBOL
         is IrEnumEntrySymbol -> BinarySymbolData.SymbolKind.ENUM_ENTRY_SYMBOL
         is IrTypeAliasSymbol -> BinarySymbolData.SymbolKind.TYPEALIAS_SYMBOL
         is IrTypeParameterSymbol -> BinarySymbolData.SymbolKind.TYPE_PARAMETER_SYMBOL

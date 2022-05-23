@@ -5,6 +5,10 @@
 
 package org.jetbrains.kotlin.konan.blackboxtest.support.settings
 
+import org.jetbrains.kotlin.konan.blackboxtest.support.TestKind
+import org.jetbrains.kotlin.konan.blackboxtest.support.runner.LocalTestRunner
+import org.jetbrains.kotlin.konan.blackboxtest.support.runner.NoopTestRunner
+import org.jetbrains.kotlin.konan.blackboxtest.support.runner.Runner
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import java.io.File
@@ -55,6 +59,22 @@ internal enum class TestMode(private val description: String) {
 }
 
 /**
+ * Whether to force [TestKind.STANDALONE] for all tests where [TestKind] is assumed to be [TestKind.REGULAR] otherwise:
+ * - either explicitly specified in the test data file: // KIND: REGULAR
+ * - or // KIND: is not specified in the test data file and thus automatically considered as [TestKind.REGULAR]
+ */
+@JvmInline
+internal value class ForcedStandaloneTestKind(val value: Boolean)
+
+/**
+ * Whether tests should be compiled only (true) or compiled and executed (false, the default).
+ *
+ * TODO: need to reconsider this setting when other [Runner]s than [LocalTestRunner] and [NoopTestRunner] are supported
+ */
+@JvmInline
+internal value class ForcedNoopTestRunner(val value: Boolean)
+
+/**
  * Optimization mode to be applied.
  */
 internal enum class OptimizationMode(private val description: String, val compilerFlag: String?) {
@@ -69,7 +89,11 @@ internal enum class OptimizationMode(private val description: String, val compil
  * The Kotlin/Native memory model.
  */
 internal enum class MemoryModel(val compilerFlags: List<String>?) {
-    DEFAULT(null),
+    /**
+     * TODO: rename DEFAULT to LEGACY. It was postponed, as it would require simultaneous change in teamcity configuration
+     * but it should be done at some point.
+     */
+    DEFAULT(listOf("-memory-model", "strict")),
     EXPERIMENTAL(listOf("-memory-model", "experimental"));
 
     override fun toString() = compilerFlags?.joinToString(prefix = "(", separator = " ", postfix = ")").orEmpty()

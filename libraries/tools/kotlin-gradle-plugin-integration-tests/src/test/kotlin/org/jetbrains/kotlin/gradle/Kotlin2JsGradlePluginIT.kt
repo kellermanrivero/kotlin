@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.gradle.util.normalizePath
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.DisabledIf
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.zip.ZipFile
@@ -216,6 +217,38 @@ class Kotlin2JsIrGradlePluginIT : AbstractKotlin2JsGradlePluginIT(true) {
                     lib && libOther
                 }
                 assertTasksExecuted(":app:compileDevelopmentExecutableKotlinJs")
+            }
+        }
+    }
+
+    @DisplayName("falsify kotlin js compiler args")
+    @GradleTest
+    fun testFalsifyKotlinJsCompilerArgs(gradleVersion: GradleVersion) {
+        project("simple-js-executable", gradleVersion) {
+            buildGradleKts.appendText(
+                """
+                |
+                |tasks.named<org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink>("compileProductionExecutableKotlinJs").configure {
+                |    kotlinOptions {
+                |        freeCompilerArgs += "-Xir-dce=false"
+                |        freeCompilerArgs += "-Xir-minimized-member-names=false"
+                |    }
+                |    
+                |    doLast {
+                |        kotlinOptions {
+                |            if (freeCompilerArgs.single { it.startsWith("-Xir-dce") } != "-Xir-dce=false") throw GradleException("fail1")
+                |            if (
+                |            freeCompilerArgs
+                |                .single { it.startsWith("-Xir-minimized-member-names") } != "-Xir-minimized-member-names=false"
+                |            ) throw GradleException("fail2")
+                |        }
+                |    }
+                |}
+               """.trimMargin()
+            )
+
+            build("build") {
+                assertFileInProjectNotExists("build/js/packages/kotlin-js-nodejs/kotlin/")
             }
         }
     }
@@ -988,6 +1021,9 @@ abstract class AbstractKotlin2JsGradlePluginIT(protected val irBackend: Boolean)
             build("build") {
                 checkIrCompilationMessage()
 
+                // It makes sense only since Tests will be run on Gradle 7.2
+                assertOutputDoesNotContain("Execution optimizations have been disabled for task ':nodeTest'")
+
                 assertTasksExecuted(":nodeTest")
             }
         }
@@ -1116,6 +1152,25 @@ abstract class AbstractKotlin2JsGradlePluginIT(protected val irBackend: Boolean)
         project("kotlin-js-nodejs-project", gradleVersion) {
             build("nodeTest") {
                 assertOutputDoesNotContain("##teamcity[")
+            }
+
+            projectPath.resolve("src/test/kotlin/Tests.kt").appendText(
+                "\n" + """
+                |class Tests3 {
+                |   @Test
+                |   fun testHello() {
+                |       throw IllegalArgumentException("foo")
+                |   }
+                |}
+                """.trimMargin()
+            )
+            buildAndFail("nodeTest") {
+                assertTasksFailed(":nodeTest")
+
+                assertTestResults(
+                    projectPath.resolve("TEST-all.xml"),
+                    "nodeTest"
+                )
             }
 
             projectPath.resolve("src/test/kotlin/Tests.kt").appendText(

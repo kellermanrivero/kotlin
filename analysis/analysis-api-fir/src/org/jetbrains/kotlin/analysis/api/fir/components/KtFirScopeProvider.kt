@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.analysis.api.fir.components
 
 import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
-import org.jetbrains.kotlin.analysis.api.ValidityTokenOwner
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeOwner
 import org.jetbrains.kotlin.analysis.api.components.KtImplicitReceiver
 import org.jetbrains.kotlin.analysis.api.components.KtScopeContext
 import org.jetbrains.kotlin.analysis.api.components.KtScopeProvider
@@ -26,10 +26,10 @@ import org.jetbrains.kotlin.analysis.api.scopes.KtScope
 import org.jetbrains.kotlin.analysis.api.symbols.KtFileSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KtPackageSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithMembers
-import org.jetbrains.kotlin.analysis.api.tokens.ValidityToken
+import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeToken
 import org.jetbrains.kotlin.analysis.api.types.KtType
-import org.jetbrains.kotlin.analysis.api.withValidityAssertion
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirModuleResolveState
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.getElementTextInContext
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirClass
@@ -49,16 +49,16 @@ internal class KtFirScopeProvider(
     analysisSession: KtFirAnalysisSession,
     builder: KtSymbolByFirBuilder,
     private val project: Project,
-    firResolveState: LLFirModuleResolveState,
-    override val token: ValidityToken,
-) : KtScopeProvider(), ValidityTokenOwner {
+    firResolveSession: LLFirResolveSession,
+    override val token: KtLifetimeToken,
+) : KtScopeProvider(), KtLifetimeOwner {
     // KtFirScopeProvider is thread local, so it's okay to use the same session here
-    private val scopeSession = analysisSession.getScopeSessionFor(analysisSession.rootModuleSession)
+    private val scopeSession = analysisSession.getScopeSessionFor(analysisSession.useSiteSession)
 
 
     override val analysisSession: KtFirAnalysisSession by weakRef(analysisSession)
     private val builder by weakRef(builder)
-    private val firResolveState by weakRef(firResolveState)
+    private val firResolveSession by weakRef(firResolveSession)
 
     private val memberScopeCache = IdentityHashMap<KtSymbolWithMembers, KtScope>()
     private val declaredMemberScopeCache = IdentityHashMap<KtSymbolWithMembers, KtScope>()
@@ -89,7 +89,7 @@ internal class KtFirScopeProvider(
     override fun getMemberScope(classSymbol: KtSymbolWithMembers): KtScope = withValidityAssertion {
         memberScopeCache.getOrPut(classSymbol) {
             val firScope = classSymbol.withFirForScope { fir ->
-                val firSession = analysisSession.rootModuleSession
+                val firSession = analysisSession.useSiteSession
                 fir.unsubstitutedScope(
                     firSession,
                     scopeSession,
@@ -103,7 +103,7 @@ internal class KtFirScopeProvider(
 
     override fun getStaticMemberScope(symbol: KtSymbolWithMembers): KtScope {
         val firScope = symbol.withFirForScope { fir ->
-            val firSession = analysisSession.rootModuleSession
+            val firSession = analysisSession.useSiteSession
             fir.scopeProvider.getStaticScope(
                 fir,
                 firSession,
@@ -116,7 +116,7 @@ internal class KtFirScopeProvider(
     override fun getDeclaredMemberScope(classSymbol: KtSymbolWithMembers): KtScope = withValidityAssertion {
         declaredMemberScopeCache.getOrPut(classSymbol) {
             val firScope = classSymbol.withFirForScope {
-                analysisSession.rootModuleSession.declaredMemberScope(it)
+                analysisSession.useSiteSession.declaredMemberScope(it)
             } ?: return@getOrPut getEmptyScope()
 
             KtFirDelegatingScope(firScope, builder, token)
@@ -130,7 +130,7 @@ internal class KtFirScopeProvider(
             val firScope = classSymbol.withFirForScope { fir ->
                 val delegateFields = fir.delegateFields
                 if (delegateFields.isNotEmpty()) {
-                    val firSession = analysisSession.rootModuleSession
+                    val firSession = analysisSession.useSiteSession
                     FirDelegatedMemberScope(
                         firSession,
                         scopeSession,
@@ -176,7 +176,7 @@ internal class KtFirScopeProvider(
 
     override fun getTypeScope(type: KtType): KtScope? {
         check(type is KtFirType) { "KtFirScopeProvider can only work with KtFirType, but ${type::class} was provided" }
-        val firSession = firResolveState.rootModuleSession
+        val firSession = firResolveSession.useSiteFirSession
         val firTypeScope = type.coneType.scope(
             firSession,
             scopeSession,
@@ -198,7 +198,7 @@ internal class KtFirScopeProvider(
         positionInFakeFile: KtElement
     ): KtScopeContext = withValidityAssertion {
         val towerDataContext =
-            analysisSession.firResolveState.getTowerContextProvider(originalFile).getClosestAvailableParentContext(positionInFakeFile)
+            analysisSession.firResolveSession.getTowerContextProvider(originalFile).getClosestAvailableParentContext(positionInFakeFile)
                 ?: error("Cannot find enclosing declaration for ${positionInFakeFile.getElementTextInContext()}")
 
         val implicitReceivers = towerDataContext.nonLocalTowerDataElements.mapNotNull { it.implicitReceiver }.distinct()

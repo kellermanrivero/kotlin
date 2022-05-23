@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 class IrCompileTimeChecker(
     containingDeclaration: IrElement? = null, private val mode: EvaluationMode = EvaluationMode.WITH_ANNOTATIONS
 ) : IrElementVisitor<Boolean, Nothing?> {
+    private var contextExpression: IrCall? = null
     private val visitedStack = mutableListOf<IrElement>().apply { if (containingDeclaration != null) add(containingDeclaration) }
 
     private fun IrElement.asVisited(block: () -> Boolean): Boolean {
@@ -29,20 +30,32 @@ class IrCompileTimeChecker(
         return result
     }
 
+    private fun <R> IrCall.saveContext(block: () -> R): R {
+        contextExpression = this
+        return block().apply { contextExpression = null }
+    }
+
     override fun visitElement(element: IrElement, data: Nothing?) = false
 
-    private fun visitStatements(statements: List<IrStatement>, data: Nothing?): Boolean {
-        if (mode == EvaluationMode.ONLY_BUILTINS) {
-            val statement = statements.singleOrNull() ?: return false
-            return statement.accept(this, data)
+    private fun IrDeclarationParent.getInnerDeclarations(): List<IrStatement> {
+        return (this as? IrDeclarationContainer)?.declarations ?: (this as? IrStatementContainer)?.statements ?: emptyList()
+    }
+
+    private fun visitStatements(statements: List<IrStatement>): Boolean {
+        when (mode) {
+            EvaluationMode.ONLY_BUILTINS, EvaluationMode.ONLY_INTRINSIC_CONST -> {
+                val statement = statements.singleOrNull() ?: return false
+                return statement.accept(this, null)
+            }
+            else -> return statements.all { it.accept(this, null) }
         }
-        return statements.all { it.accept(this, data) }
     }
 
     private fun visitConstructor(expression: IrFunctionAccessExpression): Boolean {
         return when {
-            !visitValueParameters(expression, null) || !mode.canEvaluateFunction(expression.symbol.owner) -> false
-            else -> if (mode.canEvaluateBody(expression.symbol.owner)) expression.symbol.owner.body?.accept(this, null) != false else true
+            !visitValueParameters(expression, null) || !mode.canEvaluateFunction(expression.symbol.owner, contextExpression) -> false
+            mode.canEvaluateBody(expression.symbol.owner) -> expression.symbol.owner.body?.accept(this, null) != false
+            else -> true
         }
     }
 
@@ -50,12 +63,13 @@ class IrCompileTimeChecker(
         val owner = expression.symbol.owner
         if (!mode.canEvaluateFunction(owner, expression)) return false
 
-        val dispatchReceiverComputable = expression.dispatchReceiver?.accept(this, null) ?: true
-        val extensionReceiverComputable = expression.extensionReceiver?.accept(this, null) ?: true
-        if (!visitValueParameters(expression, null)) return false
-        val bodyComputable = owner.asVisited { if (mode.canEvaluateBody(owner)) owner.body?.accept(this, null) ?: true else true }
-
-        return dispatchReceiverComputable && extensionReceiverComputable && bodyComputable
+        return expression.saveContext {
+            val dispatchReceiverComputable = expression.dispatchReceiver?.accept(this, null) ?: true
+            val extensionReceiverComputable = expression.extensionReceiver?.accept(this, null) ?: true
+            if (!visitValueParameters(expression, null)) return@saveContext false
+            val bodyComputable = owner.asVisited { if (mode.canEvaluateBody(owner)) owner.body?.accept(this, null) ?: true else true }
+            return@saveContext dispatchReceiverComputable && extensionReceiverComputable && bodyComputable
+        }
     }
 
     override fun visitVariable(declaration: IrVariable, data: Nothing?): Boolean {
@@ -69,7 +83,7 @@ class IrCompileTimeChecker(
     }
 
     override fun visitBody(body: IrBody, data: Nothing?): Boolean {
-        return visitStatements(body.statements, data)
+        return visitStatements(body.statements)
     }
 
     // We need this separate method to explicitly indicate that IrExpressionBody can be interpreted in any evaluation mode
@@ -78,7 +92,10 @@ class IrCompileTimeChecker(
     }
 
     override fun visitBlock(expression: IrBlock, data: Nothing?): Boolean {
-        return visitStatements(expression.statements, data)
+        if (mode == EvaluationMode.ONLY_INTRINSIC_CONST && expression.origin == IrStatementOrigin.WHEN) {
+            return expression.statements.all { it.accept(this, null) }
+        }
+        return visitStatements(expression.statements)
     }
 
     override fun visitSyntheticBody(body: IrSyntheticBody, data: Nothing?): Boolean {
@@ -103,7 +120,7 @@ class IrCompileTimeChecker(
 
     override fun visitComposite(expression: IrComposite, data: Nothing?): Boolean {
         if (expression.origin == IrStatementOrigin.DESTRUCTURING_DECLARATION || expression.origin == null) {
-            return visitStatements(expression.statements, data)
+            return visitStatements(expression.statements)
         }
         return false
     }
@@ -118,6 +135,7 @@ class IrCompileTimeChecker(
     }
 
     override fun visitGetEnumValue(expression: IrGetEnumValue, data: Nothing?): Boolean {
+        if (!mode.canEvaluateEnumValue(expression, contextExpression)) return false
         return expression.symbol.owner.initializerExpression?.accept(this, data) == true
     }
 
@@ -149,8 +167,8 @@ class IrCompileTimeChecker(
                 receiverComputable && initializerComputable
             }
             else -> {
-                val parent = owner.parent as IrDeclarationContainer
-                val getter = parent.declarations.filterIsInstance<IrProperty>().singleOrNull { it == property }?.getter ?: return false
+                val declarations = owner.parent.getInnerDeclarations()
+                val getter = declarations.filterIsInstance<IrProperty>().singleOrNull { it == property }?.getter ?: return false
                 visitedStack.contains(getter)
             }
         }
@@ -160,8 +178,8 @@ class IrCompileTimeChecker(
         if (expression.accessesTopLevelOrObjectField()) return false
         //todo check receiver?
         val property = expression.symbol.owner.correspondingPropertySymbol?.owner
-        val parent = expression.symbol.owner.parent as IrDeclarationContainer
-        val setter = parent.declarations.filterIsInstance<IrProperty>().single { it == property }.setter ?: return false
+        val declarations = expression.symbol.owner.parent.getInnerDeclarations()
+        val setter = declarations.filterIsInstance<IrProperty>().single { it == property }.setter ?: return false
         return visitedStack.contains(setter) && expression.value.accept(this, data)
     }
 
@@ -192,18 +210,20 @@ class IrCompileTimeChecker(
     }
 
     override fun visitFunctionReference(expression: IrFunctionReference, data: Nothing?): Boolean {
-        val owner = expression.symbol.owner
-        if (!mode.canEvaluateFunction(owner)) return false
+        if (!mode.canEvaluateReference(expression, contextExpression)) return false
 
+        val owner = expression.symbol.owner
         val dispatchReceiverComputable = expression.dispatchReceiver?.accept(this, null) ?: true
         val extensionReceiverComputable = expression.extensionReceiver?.accept(this, null) ?: true
-        val bodyComputable = owner.asVisited { if (mode.canEvaluateBody(owner)) owner.body?.accept(this, null) ?: true else true }
 
+        if (!mode.canEvaluateFunction(owner, contextExpression)) return false
+
+        val bodyComputable = owner.asVisited { if (mode.canEvaluateBody(owner)) owner.body?.accept(this, null) ?: true else true }
         return dispatchReceiverComputable && extensionReceiverComputable && bodyComputable
     }
 
     override fun visitFunctionExpression(expression: IrFunctionExpression, data: Nothing?): Boolean {
-        if (mode == EvaluationMode.ONLY_BUILTINS) return false
+        if (mode == EvaluationMode.ONLY_BUILTINS || mode == EvaluationMode.ONLY_INTRINSIC_CONST) return false
         val isLambda = expression.origin == IrStatementOrigin.LAMBDA || expression.origin == IrStatementOrigin.ANONYMOUS_FUNCTION
         val isCompileTime = mode.canEvaluateFunction(expression.function)
         return expression.function.asVisited {
@@ -245,7 +265,7 @@ class IrCompileTimeChecker(
     }
 
     override fun visitTry(aTry: IrTry, data: Nothing?): Boolean {
-        if (mode == EvaluationMode.ONLY_BUILTINS) return false
+        if (mode == EvaluationMode.ONLY_BUILTINS || mode == EvaluationMode.ONLY_INTRINSIC_CONST) return false
         if (!aTry.tryResult.accept(this, data)) return false
         if (aTry.finallyExpression != null && aTry.finallyExpression?.accept(this, data) == false) return false
         return aTry.catches.all { it.result.accept(this, data) }
@@ -265,7 +285,13 @@ class IrCompileTimeChecker(
     }
 
     override fun visitPropertyReference(expression: IrPropertyReference, data: Nothing?): Boolean {
-        return mode.canEvaluateFunction(expression.getter!!.owner)
+        if (!mode.canEvaluateReference(expression, contextExpression)) return false
+
+        val dispatchReceiverComputable = expression.dispatchReceiver?.accept(this, null) ?: true
+        val extensionReceiverComputable = expression.extensionReceiver?.accept(this, null) ?: true
+
+        val getterIsComputable = expression.getter?.let { mode.canEvaluateFunction(it.owner, contextExpression) } ?: true
+        return dispatchReceiverComputable && extensionReceiverComputable && getterIsComputable
     }
 
     override fun visitClassReference(expression: IrClassReference, data: Nothing?): Boolean {
@@ -273,7 +299,7 @@ class IrCompileTimeChecker(
             when (this) {
                 EvaluationMode.FULL -> true
                 EvaluationMode.WITH_ANNOTATIONS -> (expression.symbol.owner as IrClass).isMarkedAsCompileTime()
-                EvaluationMode.ONLY_BUILTINS -> false
+                EvaluationMode.ONLY_BUILTINS, EvaluationMode.ONLY_INTRINSIC_CONST -> false
             }
         }
     }

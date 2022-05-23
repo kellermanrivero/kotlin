@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
+import org.jetbrains.kotlin.ir.util.isComposite
 
 class Fir2IrLazyProperty(
     components: Fir2IrComponents,
@@ -39,17 +40,16 @@ class Fir2IrLazyProperty(
     override val endOffset: Int,
     override var origin: IrDeclarationOrigin,
     override val fir: FirProperty,
-    internal val containingClass: FirRegularClass,
+    internal val containingClass: FirRegularClass?,
     override val symbol: Fir2IrPropertySymbol,
     override val isFakeOverride: Boolean
-) : IrProperty(), AbstractFir2IrLazyDeclaration<FirProperty, IrProperty>, Fir2IrComponents by components {
+) : IrProperty(), AbstractFir2IrLazyDeclaration<FirProperty>, Fir2IrComponents by components {
     init {
         symbol.bind(this)
-        classifierStorage.preCacheTypeParameters(fir)
+        classifierStorage.preCacheTypeParameters(fir, symbol)
     }
 
     override var annotations: List<IrConstructorCall> by createLazyAnnotations()
-    override var typeParameters: List<IrTypeParameter> = emptyList()
     override lateinit var parent: IrDeclarationParent
 
     @ObsoleteDescriptorBasedAPI
@@ -161,20 +161,24 @@ class Fir2IrLazyProperty(
 
     override var getter: IrSimpleFunction? by lazyVar(lock) {
         if (fir.isConst) return@lazyVar null
-        Fir2IrLazyPropertyAccessor(
-            components, startOffset, endOffset,
-            when {
-                origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB -> origin
-                fir.delegate != null -> IrDeclarationOrigin.DELEGATED_PROPERTY_ACCESSOR
-                fir.getter is FirDefaultPropertyGetter -> IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR
-                else -> origin
-            },
-            fir.getter, isSetter = false, fir, containingClass,
-            Fir2IrSimpleFunctionSymbol(
-                signatureComposer.composeAccessorSignature(fir, isSetter = false, containingClass.symbol.toLookupTag())!!
-            ),
-            isFakeOverride
-        ).apply {
+        val signature = signatureComposer.composeAccessorSignature(
+            fir,
+            isSetter = false,
+            containingClass?.symbol?.toLookupTag(),
+            forceTopLevelPrivate = symbol.signature.isComposite()
+        )!!
+        symbolTable.declareSimpleFunction(signature, symbolFactory = { Fir2IrSimpleFunctionSymbol(signature) }) { symbol ->
+            Fir2IrLazyPropertyAccessor(
+                components, startOffset, endOffset,
+                when {
+                    origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB -> origin
+                    fir.delegate != null -> IrDeclarationOrigin.DELEGATED_PROPERTY_ACCESSOR
+                    fir.getter is FirDefaultPropertyGetter -> IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR
+                    else -> origin
+                },
+                fir.getter, isSetter = false, fir, containingClass, symbol, isFakeOverride
+            )
+        }.apply {
             parent = this@Fir2IrLazyProperty.parent
             correspondingPropertySymbol = this@Fir2IrLazyProperty.symbol
             with(classifierStorage) {
@@ -189,41 +193,43 @@ class Fir2IrLazyProperty(
     }
 
     override var setter: IrSimpleFunction? by lazyVar(lock) {
-        if (!fir.isVar) null else Fir2IrLazyPropertyAccessor(
-            components, startOffset, endOffset,
-            when {
-                origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB -> origin
-                fir.delegate != null -> IrDeclarationOrigin.DELEGATED_PROPERTY_ACCESSOR
-                fir.setter is FirDefaultPropertySetter -> IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR
-                else -> origin
-            },
-            fir.setter, isSetter = true, fir, containingClass,
-            Fir2IrSimpleFunctionSymbol(
-                signatureComposer.composeAccessorSignature(fir, isSetter = true, containingClass.symbol.toLookupTag())!!
-            ),
-            isFakeOverride
-        ).apply {
-            parent = this@Fir2IrLazyProperty.parent
-            correspondingPropertySymbol = this@Fir2IrLazyProperty.symbol
-            with(classifierStorage) {
-                setTypeParameters(
-                    this@Fir2IrLazyProperty.fir, ConversionTypeContext(
-                        definitelyNotNull = false,
-                        origin = ConversionTypeOrigin.SETTER
-                    )
-                )
+        if (!fir.isVar) null
+        else {
+            val signature = signatureComposer.composeAccessorSignature(
+                fir,
+                isSetter = true,
+                containingClass?.symbol?.toLookupTag(),
+                forceTopLevelPrivate = symbol.signature.isComposite()
+            )!!
+            symbolTable.declareSimpleFunction(signature, symbolFactory = { Fir2IrSimpleFunctionSymbol(signature) }) { symbol ->
+                Fir2IrLazyPropertyAccessor(
+                    components, startOffset, endOffset,
+                    when {
+                        origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB -> origin
+                        fir.delegate != null -> IrDeclarationOrigin.DELEGATED_PROPERTY_ACCESSOR
+                        fir.setter is FirDefaultPropertySetter -> IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR
+                        else -> origin
+                    },
+                    fir.setter, isSetter = true, fir, containingClass, symbol, isFakeOverride
+                ).apply {
+                    parent = this@Fir2IrLazyProperty.parent
+                    correspondingPropertySymbol = this@Fir2IrLazyProperty.symbol
+                    with(classifierStorage) {
+                        setTypeParameters(
+                            this@Fir2IrLazyProperty.fir, ConversionTypeContext(
+                                definitelyNotNull = false,
+                                origin = ConversionTypeOrigin.SETTER
+                            )
+                        )
+                    }
+                }
             }
         }
     }
 
     override var overriddenSymbols: List<IrPropertySymbol> by lazyVar(lock) {
-        fir.generateOverriddenPropertySymbols(
-            containingClass,
-            session,
-            scopeSession,
-            declarationStorage,
-            fakeOverrideGenerator
-        )
+        if (containingClass == null) return@lazyVar emptyList()
+        fir.generateOverriddenPropertySymbols(containingClass)
     }
 
     override var metadata: MetadataSource?
