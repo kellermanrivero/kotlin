@@ -117,7 +117,7 @@ sealed class ClangArgs(
         )
 
         KonanTarget.LINUX_ARM32_SFP -> listOf(
-                "-mfpu=vfp3-d16", "-mfloat-abi=softfp"
+                "-mfpu=neon", "-mfloat-abi=softfp"
         )
 
         KonanTarget.IOS_ARM32, KonanTarget.WATCHOS_ARM32 -> listOf(
